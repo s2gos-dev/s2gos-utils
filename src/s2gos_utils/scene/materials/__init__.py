@@ -17,7 +17,7 @@ from .loader import MaterialConfigLoader, get_landcover_mapping, load_materials
 
 __all__ = [
     "Material",
-    "DiffuseMaterial", 
+    "DiffuseMaterial",
     "BilambertianMaterial",
     "RPVMaterial",
     "OceanLegacyMaterial",

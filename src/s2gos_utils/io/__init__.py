@@ -11,7 +11,7 @@ from .paths import (
 
 __all__ = [
     "open_file",
-    "exists", 
+    "exists",
     "read_feather",
     "read_geofeather",
     "read_json",

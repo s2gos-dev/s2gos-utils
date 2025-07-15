@@ -3,6 +3,7 @@ from enum import Enum
 
 class MaterialType(str, Enum):
     """Material types for scene surfaces."""
+
     DIFFUSE = "diffuse"
     RPV = "rpv"
     BILAMBERTIAN = "bilambertian"
@@ -11,6 +12,7 @@ class MaterialType(str, Enum):
 
 class BackgroundMaterial(str, Enum):
     """Available background materials."""
+
     WATER = "water"
     BARESOIL = "baresoil"
     CONCRETE = "concrete"

@@ -27,7 +27,7 @@ __all__ = [
     "load_materials",
     "get_landcover_mapping",
     "open_file",
-    "exists", 
+    "exists",
     "read_json",
     "read_yaml",
 ]
