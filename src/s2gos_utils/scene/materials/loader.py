@@ -1,14 +1,15 @@
-from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from upath import UPath
+from typing import Any, Dict, Optional
 
 from .definitions import Material
 from ...io.paths import exists, read_json
+from ...typing import PathLike
 
 
 class MaterialConfigLoader:
     """Loads material configurations from JSON files."""
 
-    def __init__(self, config_path: Optional[Union[Path, str]] = None):
+    def __init__(self, config_path: Optional[PathLike] = None):
         """Initialize the loader with a configuration file path.
 
         Args:
@@ -16,7 +17,7 @@ class MaterialConfigLoader:
         """
         if config_path is None:
             config_path = (
-                Path(__file__).parent.parent.parent / "data" / "materials.json"
+                UPath(__file__).parent.parent.parent / "data" / "materials.json"
             )
 
         self.config_path = config_path
@@ -52,7 +53,7 @@ class MaterialConfigLoader:
         materials = {}
 
         # Get base directory for resolving relative paths
-        base_dir = self.config_path.parent if self.config_path else None
+        base_dir = UPath(self.config_path).parent if self.config_path else None
 
         for material_id, material_config in config["materials"].items():
             materials[material_id] = Material.from_dict(
@@ -110,7 +111,7 @@ class MaterialConfigLoader:
 _default_loader = MaterialConfigLoader()
 
 
-def load_materials(config_path: Optional[Path] = None) -> Dict[str, Material]:
+def load_materials(config_path: Optional[UPath] = None) -> Dict[str, Material]:
     """Load materials from configuration file.
 
     Args:
@@ -126,7 +127,7 @@ def load_materials(config_path: Optional[Path] = None) -> Dict[str, Material]:
         return loader.load_materials()
 
 
-def get_landcover_mapping(config_path: Optional[Path] = None) -> Dict[str, str]:
+def get_landcover_mapping(config_path: Optional[UPath] = None) -> Dict[str, str]:
     """Get landcover to material mapping from configuration file.
 
     Args:

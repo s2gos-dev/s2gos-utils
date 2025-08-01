@@ -1,6 +1,6 @@
 import json
 from dataclasses import dataclass, field
-from pathlib import Path
+from upath import UPath
 from typing import Any, Dict, Optional
 
 import yaml
@@ -78,25 +78,25 @@ class SceneDescription:
 
         return result
 
-    def save_yaml(self, output_path: Path):
+    def save_yaml(self, output_path: UPath):
         """Save scene description as YAML file."""
         with open_file(output_path, "w") as f:
             yaml.dump(self.to_dict(), f, default_flow_style=False, indent=2)
 
-    def save_json(self, output_path: Path):
+    def save_json(self, output_path: UPath):
         """Save scene description as JSON file."""
         with open_file(output_path, "w") as f:
             json.dump(self.to_dict(), f, indent=2)
 
     @classmethod
-    def load_yaml(cls, file_path: Path) -> "SceneDescription":
+    def load_yaml(cls, file_path: UPath) -> "SceneDescription":
         """Load scene description from YAML file."""
         with open_file(file_path, "r") as f:
             data = yaml.safe_load(f)
         return cls.from_dict(data)
 
     @classmethod
-    def load_json(cls, file_path: Path) -> "SceneDescription":
+    def load_json(cls, file_path: UPath) -> "SceneDescription":
         """Load scene description from JSON file."""
         with open_file(file_path, "r") as f:
             data = json.load(f)

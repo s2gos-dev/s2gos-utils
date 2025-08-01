@@ -17,6 +17,7 @@ dependencies = [
     "geopandas>=0.13.0",
     "pyarrow>=10.0.0",
     "attrs>=22.0.0",
+    "universal-pathlib>=0.2.0",
 ]
 
 [build-system]

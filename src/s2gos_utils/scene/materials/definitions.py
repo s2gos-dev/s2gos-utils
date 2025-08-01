@@ -1,5 +1,5 @@
 import threading
-from pathlib import Path
+from upath import UPath
 from typing import Any, ClassVar, Optional
 
 import attrs
@@ -7,12 +7,12 @@ import attrs
 _local = threading.local()
 
 
-def _set_base_dir(base_dir: Optional[Path]):
+def _set_base_dir(base_dir: Optional[UPath]):
     """Set the base directory for resolving relative paths."""
     _local.base_dir = base_dir
 
 
-def _get_base_dir() -> Optional[Path]:
+def _get_base_dir() -> Optional[UPath]:
     """Get the current base directory."""
     return getattr(_local, "base_dir", None)
 
