@@ -1,7 +1,7 @@
 import json
-import os
-from typing import Any, Dict, Optional
+from typing import Any, BinaryIO, Dict, Optional, TextIO, Union
 
+import geopandas as gpd
 import pandas as pd
 import xarray as xr
 import yaml
@@ -10,7 +10,7 @@ from upath import UPath
 from ..typing import PathLike
 
 
-def open_file(path: PathLike, mode: str = "r", **kwargs):
+def open_file(path: PathLike, mode: str = "r", **kwargs) -> Union[TextIO, BinaryIO]:
     """Open a file using UPath for unified access across storage backends.
 
     Args:
@@ -22,8 +22,6 @@ def open_file(path: PathLike, mode: str = "r", **kwargs):
         A file object.
     """
     return UPath(path).open(mode=mode, **kwargs)
-
-
 
 
 def read_feather(path: PathLike, **kwargs) -> pd.DataFrame:
@@ -40,7 +38,7 @@ def read_feather(path: PathLike, **kwargs) -> pd.DataFrame:
         return pd.read_feather(f, **kwargs)
 
 
-def read_geofeather(path: PathLike, **kwargs):
+def read_geofeather(path: PathLike, **kwargs) -> gpd.GeoDataFrame:
     """Read a GeoFeather file as a GeoDataFrame from any backend.
 
     Args:
@@ -50,10 +48,6 @@ def read_geofeather(path: PathLike, **kwargs):
     Returns:
         A GeoDataFrame.
     """
-    # Geopandas is imported here to keep it an optional dependency if not all
-    # users of this module need it.
-    import geopandas as gpd
-
     with open_file(path, "rb") as f:
         return gpd.read_feather(f, **kwargs)
 
@@ -128,7 +122,9 @@ def exists(path: PathLike) -> bool:
     return UPath(path).exists()
 
 
-def mkdir(path: PathLike, parents: bool = True, exist_ok: bool = True, **kwargs) -> None:
+def mkdir(
+    path: PathLike, parents: bool = True, exist_ok: bool = True, **kwargs
+) -> None:
     """Create directory using UPath (supports local and some remote protocols)."""
     UPath(path).mkdir(parents=parents, exist_ok=exist_ok, **kwargs)
 

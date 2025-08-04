@@ -1,5 +1,6 @@
 import os
 from typing import Union
+
 from upath import UPath
 
 #: Path-like type annotation for all path parameters

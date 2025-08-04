@@ -1,8 +1,8 @@
 import threading
-from upath import UPath
 from typing import Any, ClassVar, Optional
 
 import attrs
+from upath import UPath
 
 _local = threading.local()
 
@@ -131,7 +131,10 @@ class DiffuseMaterial(Material):
         Returns:
             Dictionary with material type and spectral data references
         """
-        return {"type": "diffuse", "reflectance": self.reflectance}
+        return {
+            "type": "diffuse",
+            "reflectance": self.reflectance,
+        }
 
 
 @attrs.define

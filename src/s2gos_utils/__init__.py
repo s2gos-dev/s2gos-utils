@@ -1,5 +1,3 @@
-__version__ = "0.0.1"
-
 from .io.paths import (
     exists,
     is_remote_path,
@@ -19,6 +17,14 @@ from .scene.materials import (
     load_materials,
 )
 from .typing import PathLike
+from .versioning import (
+    check_version_compatibility,
+    get_package_version,
+    get_version_info,
+    parse_version,
+    validate_config_version,
+    version_stamp,
+)
 
 __all__ = [
     "SceneDescription",
@@ -37,4 +43,10 @@ __all__ = [
     "FileResolver",
     "resolver",
     "PathLike",
+    "check_version_compatibility",
+    "get_version_info",
+    "parse_version",
+    "validate_config_version",
+    "version_stamp",
+    "get_package_version",
 ]

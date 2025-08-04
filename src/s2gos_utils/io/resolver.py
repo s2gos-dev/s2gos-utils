@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import importlib.resources
 import os
-from typing import List
 
 import attrs
 from upath import UPath
@@ -19,16 +18,19 @@ def _validator_path_exists(instance, attribute, value: UPath):
 @attrs.define
 class FileResolver:
     """File resolver with UPath support for local and remote paths."""
-    
+
     paths: list[UPath] = attrs.field(
         factory=list,
-        converter=lambda value: [UPath(x).resolve() if hasattr(UPath(x), 'resolve') else UPath(x) for x in value],
+        converter=lambda value: [
+            UPath(x).resolve() if hasattr(UPath(x), "resolve") else UPath(x)
+            for x in value
+        ],
         validator=attrs.validators.deep_iterable(_validator_path_exists),
     )
 
     def append(self, path: PathLike, avoid_duplicates: bool = True) -> None:
         """Append an entry to the end of the list of search paths.
-        
+
         Args:
             path: Path to add to search paths (local or remote)
             avoid_duplicates: If True, avoid adding duplicate paths
@@ -37,16 +39,16 @@ class FileResolver:
         # Resolve for local paths only
         if upath.protocol == "file":
             upath = upath.resolve()
-        
+
         if not upath.exists():
             raise FileNotFoundError(f"Path does not exist: {upath}")
 
         if avoid_duplicates and upath not in self.paths:
             self.paths.append(upath)
-    
+
     def prepend(self, path: PathLike, avoid_duplicates: bool = True) -> None:
         """Prepend an entry at the beginning of the list of search paths.
-        
+
         Args:
             path: Path to add to search paths (local or remote)
             avoid_duplicates: If True, avoid adding duplicate paths
@@ -55,71 +57,71 @@ class FileResolver:
         # Resolve for local paths only
         if upath.protocol == "file":
             upath = upath.resolve()
-        
+
         if not upath.exists():
             raise FileNotFoundError(f"Path does not exist: {upath}")
 
         if avoid_duplicates and upath not in self.paths:
             self.paths.insert(0, upath)
-    
+
     def clear(self) -> None:
         """Clear the list of search paths."""
         self.paths.clear()
-    
+
     def resolve(self, path: PathLike, strict: bool = False) -> UPath:
         """Resolve a path by searching registered locations in order.
-        
+
         Args:
             path: Path to be resolved
             strict: If True, resolution failure will raise
-            
+
         Returns:
             Resolved UPath object
-            
+
         Raises:
             FileNotFoundError: If strict=True and path not found in any search location
         """
         upath = UPath(path)
-        
+
         # If already absolute or remote and exists, return as-is
         if (upath.is_absolute() or upath.protocol != "file") and upath.exists():
             return upath
-        
+
         if not upath.is_absolute():
             for base in self.paths:
                 candidate = base / path
                 if candidate.exists():
                     return candidate
-        
+
         if strict:
             raise FileNotFoundError(
                 f"Could not resolve '{path}' in search paths: {[str(p) for p in self.paths]}"
             )
-        
+
         return upath
-    
+
     def get_search_info(self) -> dict:
         """Get information about current search configuration."""
         return {
             "search_paths": [str(p) for p in self.paths],
-            "path_count": len(self.paths)
+            "path_count": len(self.paths),
         }
-    
+
     @classmethod
     def from_environment(cls, prefix: str = "S2GOS") -> FileResolver:
         """Create resolver from environment variables.
-        
+
         Looks for variables like:
         - S2GOS_SEARCH_PATHS="./data,./config,s3://defaults/"
-        
+
         Args:
             prefix: Environment variable prefix
-            
+
         Returns:
             Configured FileResolver instance
         """
         resolver = cls()
-        
+
         # Load search paths from environment
         search_paths_env = os.getenv(f"{prefix}_SEARCH_PATHS")
         if search_paths_env:
@@ -130,33 +132,33 @@ class FileResolver:
                 except FileNotFoundError:
                     # Skip non-existent paths from environment
                     pass
-        
+
         return resolver
 
 
 def create_default_resolver() -> FileResolver:
     """Create a resolver with smart defaults for s2gos."""
     search_paths = []
-    
+
     try:
-        gen_package_data = importlib.resources.files('s2gos_generator') / "data"
+        gen_package_data = importlib.resources.files("s2gos_generator") / "data"
         if UPath(str(gen_package_data)).exists():
             search_paths.append(str(gen_package_data))
     except (ImportError, FileNotFoundError):
         pass
-    
+
     user_paths = []
-    package_data = importlib.resources.files('s2gos_utils.io')
-    with (UPath(str(package_data))/"defaults.txt").open("r") as f:
+    package_data = importlib.resources.files("s2gos_utils.io")
+    with (UPath(str(package_data)) / "defaults.txt").open("r") as f:
         for line in f:
             path = line.strip()
             user_paths.append(path)
-    
+
     for path in user_paths:
         upath = UPath(path)
         if upath.exists():
             search_paths.append(path)
-    
+
     resolver = FileResolver()
     for path in search_paths:
         try:
@@ -164,14 +166,14 @@ def create_default_resolver() -> FileResolver:
         except FileNotFoundError:
             # Skip non-existent paths gracefully
             pass
-    
+
     # Override with environment if available
     env_resolver = FileResolver.from_environment()
     if env_resolver.paths:
         # Prepend environment paths (highest priority)
         for path in reversed(env_resolver.paths):
             resolver.prepend(str(path))
-    
+
     return resolver
 
 

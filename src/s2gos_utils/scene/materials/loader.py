@@ -1,9 +1,12 @@
-from upath import UPath
+import importlib.resources
 from typing import Any, Dict, Optional
+
+from upath import UPath
 
 from .definitions import Material
 from ...io.paths import exists, read_json
 from ...typing import PathLike
+from ...versioning import validate_config_version
 
 
 class MaterialConfigLoader:
@@ -16,15 +19,16 @@ class MaterialConfigLoader:
             config_path: Path to the JSON configuration file. If None, uses default.
         """
         if config_path is None:
+            # Use proper importlib.resources to access package data
             config_path = (
-                UPath(__file__).parent.parent.parent / "data" / "materials.json"
+                importlib.resources.files("s2gos_generator") / "data" / "materials.json"
             )
 
-        self.config_path = config_path
+        self.config_path = UPath(config_path)
         self._config_cache: Optional[Dict[str, Any]] = None
 
     def _load_config(self) -> Dict[str, Any]:
-        """Load the JSON configuration file.
+        """Load the JSON configuration file with version validation.
 
         Returns:
             Dictionary containing the full configuration
@@ -32,6 +36,7 @@ class MaterialConfigLoader:
         Raises:
             FileNotFoundError: If the configuration file doesn't exist
             json.JSONDecodeError: If the JSON is invalid
+            ValueError: If version is incompatible
         """
         if self._config_cache is None:
             if not exists(self.config_path):
@@ -39,7 +44,15 @@ class MaterialConfigLoader:
                     f"Material configuration file not found: {self.config_path}"
                 )
 
-            self._config_cache = read_json(self.config_path)
+            raw_config = read_json(self.config_path)
+
+            from ..._version import get_version
+
+            validated_config = validate_config_version(
+                "material_config", raw_config, get_version(), "materials configuration"
+            )
+
+            self._config_cache = validated_config
 
         return self._config_cache
 
