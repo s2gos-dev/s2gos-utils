@@ -20,18 +20,59 @@ def _get_base_dir() -> Optional[UPath]:
 def _spectral_parameter_converter(value: Any) -> dict:
     """Convert spectral parameter specification and preserve original data.
 
+    Supports both spectral file references and uniform values:
+    - File reference: {"path": "spectrum.nc", "variable": "reflectance"}
+    - Uniform value: {"type": "uniform", "value": [0.8, 0.6, 0.4]} or {"type": "uniform", "value": 0.5}
+
     Args:
-        value: Dictionary with 'path' and 'variable' keys specifying spectral data
+        value: Dictionary with spectral data specification
 
     Returns:
-        Dictionary with original path data (for serialization)
+        Dictionary with validated spectral parameter data (for serialization)
 
     Raises:
         TypeError: If value type is not supported
+        ValueError: If dictionary format is invalid
     """
     if isinstance(value, dict):
-        # Just return the original dict - we'll handle callable creation in the adapter
-        return value.copy()
+        value_copy = value.copy()
+        
+        # Validate format
+        if "path" in value_copy and "variable" in value_copy:
+            # File-based spectral data (existing format)
+            if not isinstance(value_copy["path"], str) or not isinstance(value_copy["variable"], str):
+                raise ValueError("'path' and 'variable' must be strings for file-based spectral data")
+                
+        elif "type" in value_copy and value_copy["type"] == "uniform":
+            # Uniform value format (new format)
+            if "value" not in value_copy:
+                raise ValueError("Uniform spectral parameter must contain 'value' field")
+            
+            uniform_value = value_copy["value"]
+            
+            # Validate uniform value
+            if isinstance(uniform_value, (int, float)):
+                # Scalar value - validate range
+                if not (0.0 <= uniform_value <= 1.0):
+                    raise ValueError(f"Uniform scalar value {uniform_value} must be between 0.0 and 1.0")
+            elif isinstance(uniform_value, (list, tuple)):
+                # RGB array - validate
+                if len(uniform_value) != 3:
+                    raise ValueError(f"Uniform RGB value must have exactly 3 components, got {len(uniform_value)}")
+                for i, component in enumerate(uniform_value):
+                    if not isinstance(component, (int, float)):
+                        raise ValueError(f"Uniform RGB component {i} must be numeric, got {type(component).__name__}")
+                    if not (0.0 <= component <= 1.0):
+                        raise ValueError(f"Uniform RGB component {i} value {component} must be between 0.0 and 1.0")
+                # Convert to list for consistent serialization
+                value_copy["value"] = list(uniform_value)
+            else:
+                raise ValueError(f"Uniform value must be scalar or 3-component RGB array, got {type(uniform_value).__name__}")
+                
+        else:
+            raise ValueError("Spectral parameter must be either file reference ({'path': ..., 'variable': ...}) or uniform value ({'type': 'uniform', 'value': ...})")
+            
+        return value_copy
     else:
         raise TypeError(f"conversion of {type(value).__name__} is unsupported")
 
@@ -119,7 +160,9 @@ class DiffuseMaterial(Material):
 
     Args:
         id: Unique material identifier
-        reflectance: Dictionary with spectral data path and variable
+        reflectance: Dictionary with spectral data specification:
+            - File reference: {"path": "spectrum.nc", "variable": "reflectance"}
+            - Uniform value: {"type": "uniform", "value": [0.8, 0.6, 0.4]} or {"type": "uniform", "value": 0.5}
     """
 
     id: str = attrs.field(converter=str)
@@ -145,8 +188,10 @@ class BilambertianMaterial(Material):
 
     Args:
         id: Unique material identifier
-        reflectance: Dictionary with spectral data path and variable
-        transmittance: Dictionary with spectral data path and variable
+        reflectance: Dictionary with spectral data specification:
+            - File reference: {"path": "spectrum.nc", "variable": "reflectance"}
+            - Uniform value: {"type": "uniform", "value": [0.8, 0.6, 0.4]} or {"type": "uniform", "value": 0.5}
+        transmittance: Dictionary with spectral data specification (same format as reflectance)
     """
 
     id: str = attrs.field(converter=str)

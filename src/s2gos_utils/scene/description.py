@@ -1,6 +1,6 @@
 import json
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import yaml
 from upath import UPath
@@ -26,6 +26,7 @@ class SceneDescription:
     target: Optional[Dict[str, Any]] = None
     buffer: Optional[Dict[str, Any]] = None
     background: Optional[Dict[str, Any]] = None
+    objects: List[Dict[str, Any]] = field(default_factory=list)
     material_indices: Dict[int, str] = field(default_factory=dict)
 
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -58,6 +59,8 @@ class SceneDescription:
             result["buffer"] = self.buffer
         if self.background:
             result["background"] = self.background
+        if self.objects:
+            result["objects"] = self.objects
         if self.material_indices:
             result["material_indices"] = self.material_indices
 
@@ -119,6 +122,7 @@ class SceneDescription:
             target=target,
             buffer=data.get("buffer"),
             background=data.get("background"),
+            objects=data.get("objects", []),
             material_indices=data.get("material_indices", {}),
             metadata=data.get("metadata", {}),
         )
