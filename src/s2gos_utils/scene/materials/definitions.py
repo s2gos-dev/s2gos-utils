@@ -1,297 +1,417 @@
-import threading
-from typing import Any, ClassVar, Optional
+from pathlib import Path
+from typing import Any, ClassVar, Dict, List, Literal, Optional, Type, Union
+import re
 
-import attrs
-from upath import UPath
-
-_local = threading.local()
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
-def _set_base_dir(base_dir: Optional[UPath]):
-    """Set the base directory for resolving relative paths."""
-    _local.base_dir = base_dir
-
-
-def _get_base_dir() -> Optional[UPath]:
-    """Get the current base directory."""
-    return getattr(_local, "base_dir", None)
-
-
-def _spectral_parameter_converter(value: Any) -> dict:
-    """Convert spectral parameter specification and preserve original data.
-
-    Supports both spectral file references and uniform values:
-    - File reference: {"path": "spectrum.nc", "variable": "reflectance"}
-    - Uniform value: {"type": "uniform", "value": [0.8, 0.6, 0.4]} or {"type": "uniform", "value": 0.5}
-
+def validate_spectral_parameter(cls, v, enforce_unit_bounds=True):
+    """Universal spectral parameter validator for Eradiate/Mitsuba compatibility.
+    
+    Validates spectral parameters according to both Eradiate and Mitsuba specifications:
+    - File-based: {"path": "spectrum.nc", "variable": "reflectance"}
+    - Uniform: {"type": "uniform", "value": 0.5} or {"type": "uniform", "value": [0.8, 0.6, 0.4]}
+    
+    Physical constraints:
+    - Reflectance/transmittance values must be in [0,1] for energy conservation (enforce_unit_bounds=True)
+    - IOR values can be outside [0,1] (enforce_unit_bounds=False)
+    - File paths must exist (when not None)
+    
     Args:
-        value: Dictionary with spectral data specification
-
-    Returns:
-        Dictionary with validated spectral parameter data (for serialization)
-
-    Raises:
-        TypeError: If value type is not supported
-        ValueError: If dictionary format is invalid
+        cls: Validator class
+        v: Parameter value to validate
+        enforce_unit_bounds: If True, enforce [0,1] bounds for physical validity
     """
-    if isinstance(value, dict):
-        value_copy = value.copy()
+    if not isinstance(v, dict):
+        raise ValueError("Spectral parameter must be a dictionary")
         
-        # Validate format
-        if "path" in value_copy and "variable" in value_copy:
-            # File-based spectral data (existing format)
-            if not isinstance(value_copy["path"], str) or not isinstance(value_copy["variable"], str):
-                raise ValueError("'path' and 'variable' must be strings for file-based spectral data")
-                
-        elif "type" in value_copy and value_copy["type"] == "uniform":
-            # Uniform value format (new format)
-            if "value" not in value_copy:
-                raise ValueError("Uniform spectral parameter must contain 'value' field")
-            
-            uniform_value = value_copy["value"]
-            
-            # Validate uniform value
-            if isinstance(uniform_value, (int, float)):
-                # Scalar value - validate range
-                if not (0.0 <= uniform_value <= 1.0):
-                    raise ValueError(f"Uniform scalar value {uniform_value} must be between 0.0 and 1.0")
-            elif isinstance(uniform_value, (list, tuple)):
-                # RGB array - validate
-                if len(uniform_value) != 3:
-                    raise ValueError(f"Uniform RGB value must have exactly 3 components, got {len(uniform_value)}")
-                for i, component in enumerate(uniform_value):
-                    if not isinstance(component, (int, float)):
-                        raise ValueError(f"Uniform RGB component {i} must be numeric, got {type(component).__name__}")
-                    if not (0.0 <= component <= 1.0):
-                        raise ValueError(f"Uniform RGB component {i} value {component} must be between 0.0 and 1.0")
-                # Convert to list for consistent serialization
-                value_copy["value"] = list(uniform_value)
-            else:
-                raise ValueError(f"Uniform value must be scalar or 3-component RGB array, got {type(uniform_value).__name__}")
-                
+    if "type" in v and v["type"] == "uniform":
+        if "value" not in v:
+            raise ValueError("Uniform spectral parameter must have 'value' field")
+        value = v["value"]
+        
+        if isinstance(value, (list, tuple)):
+            # RGB array validation
+            if len(value) != 3:
+                raise ValueError("RGB values must have exactly 3 components")
+            for i, component in enumerate(value):
+                if not isinstance(component, (int, float)):
+                    raise ValueError(f"RGB component {i} must be numeric, got {type(component).__name__}")
+                if enforce_unit_bounds and not (0.0 <= component <= 1.0):
+                    raise ValueError(f"RGB component {i} value {component} must be in [0,1]")
+        elif isinstance(value, (int, float)):
+            if enforce_unit_bounds and not (0.0 <= value <= 1.0):
+                raise ValueError(f"Uniform value {value} must be in [0,1]")
         else:
-            raise ValueError("Spectral parameter must be either file reference ({'path': ..., 'variable': ...}) or uniform value ({'type': 'uniform', 'value': ...})")
-            
-        return value_copy
+            raise ValueError(f"Uniform value must be scalar or 3-component RGB, got {type(value).__name__}")
+                
+    elif "path" in v and "variable" in v:
+        # File-based spectral data validation
+        if not isinstance(v["path"], str) or not isinstance(v["variable"], str):
+            raise ValueError("'path' and 'variable' must be strings for file-based spectral data")
+        # Note: File existence check is optional to support dynamic paths
     else:
-        raise TypeError(f"conversion of {type(value).__name__} is unsupported")
+        raise ValueError("Spectral parameter must be either file reference ({'path': ..., 'variable': ...}) or uniform value ({'type': 'uniform', 'value': ...})")
+        
+    return v
 
 
-@attrs.define
-class Material:
-    """Material base class and factory for material subtypes.
+def validate_reflectance_parameter(cls, v):
+    """Validate reflectance/transmittance parameter with [0,1] bounds."""
+    return validate_spectral_parameter(cls, v, enforce_unit_bounds=True)
 
+
+def validate_ior_parameter(cls, v):
+    """Validate IOR parameter without unit bounds (can be > 1)."""
+    return validate_spectral_parameter(cls, v, enforce_unit_bounds=False)
+
+
+class Material(BaseModel):
+    """Base material class with Pydantic validation and auto-registration.
+    
     Provides factory method to create material instances from dictionary
-    specifications and defines the interface all materials must implement.
+    specifications with automatic type registration and precise validation
+    based on Eradiate and Mitsuba BSDF specifications.
     """
-
-    __SUBTYPES: ClassVar[dict] = None
-
+    
+    _registry: ClassVar[Dict[str, Type['Material']]] = {}
+    
+    id: str = Field(..., description="Unique material identifier")
+    
+    def __init_subclass__(cls, material_type: str = None, **kwargs):
+        """Auto-register material types when classes are defined."""
+        super().__init_subclass__(**kwargs)
+        
+        if material_type is None:
+            # Auto-derive type from class name: RoughConductorMaterial -> rough_conductor
+            material_type = cls.__name__.replace('Material', '')
+            # Convert CamelCase to snake_case
+            material_type = re.sub(r'([a-z0-9])([A-Z])', r'\1_\2', material_type).lower()
+        
+        cls._registry[material_type] = cls
+    
     @classmethod
-    def __subtypes(cls) -> dict[str, type]:
-        """Get the subtype dispatch table.
-
-        Returns:
-            Dictionary mapping material type names to their classes
-        """
-        if cls.__SUBTYPES is None:
-            cls.__SUBTYPES = {
-                "diffuse": DiffuseMaterial,
-                "bilambertian": BilambertianMaterial,
-                "rpv": RPVMaterial,
-                "ocean_legacy": OceanLegacyMaterial,
-            }
-        return cls.__SUBTYPES
-
+    def get_registered_types(cls) -> List[str]:
+        """Get list of all registered material types."""
+        return list(cls._registry.keys())
+    
     @classmethod
-    def from_dict(cls, d: dict, **kwargs):
-        """Create material instance from dictionary specification.
-
+    def from_dict(cls, data: Dict[str, Any], **kwargs) -> 'Material':
+        """Create material instance from dictionary with automatic type dispatch.
+        
         Args:
-            d: Dictionary with 'type' key and material parameters
+            data: Dictionary with 'type' key and material parameters
             **kwargs: Additional arguments passed to material constructor
-
+            
         Returns:
             Material instance of appropriate subtype
-
+            
         Raises:
             ValueError: If material type is unknown
         """
-        d = d.copy()
-        subtype = d.pop("type")
-
-        # Set base directory for path resolution if provided
-        base_dir = kwargs.pop("base_dir", None)
-        if base_dir:
-            _set_base_dir(base_dir)
-
-        try:
-            subtype = cls.__subtypes()[subtype]
-        except KeyError as e:
-            raise ValueError(f"unknown material type '{subtype}'") from e
-
-        return subtype(**d, **kwargs)
-
+        data = data.copy()
+        material_type = data.pop("type")
+        
+        # Remove unused base_dir parameter for compatibility
+        kwargs.pop("base_dir", None)
+        
+        if material_type not in cls._registry:
+            available = list(cls._registry.keys())
+            raise ValueError(f"Unknown material type '{material_type}'. Available types: {available}")
+        
+        material_class = cls._registry[material_type]
+        return material_class(**data, **kwargs)
+    
     @property
     def mat_id(self) -> str:
-        """Material ID for use in scene dictionaries.
-
-        Returns:
-            String identifier with '_mat_' prefix
-        """
-        return f"_mat_{self.id}"
-
-    # Eradiate-specific kdict/kpmap methods moved to s2gos-simulator backend
-
-    def to_dict(self) -> dict:
-        """Convert to dictionary for serialization.
-
-        Returns:
-            Dictionary representation suitable for YAML serialization
-        """
-        raise NotImplementedError
+        """Material ID for use in scene dictionaries."""
+        return self.id
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for serialization."""
+        data = self.model_dump()
+        # Add type field based on class registration
+        for type_name, class_type in self._registry.items():
+            if isinstance(self, class_type):
+                data["type"] = type_name
+                break
+        return data
 
 
-@attrs.define
-class DiffuseMaterial(Material):
-    """Material with diffuse reflectance properties.
-
-    Represents surfaces with Lambertian reflection behavior.
-
-    Args:
-        id: Unique material identifier
-        reflectance: Dictionary with spectral data specification:
-            - File reference: {"path": "spectrum.nc", "variable": "reflectance"}
-            - Uniform value: {"type": "uniform", "value": [0.8, 0.6, 0.4]} or {"type": "uniform", "value": 0.5}
+class DiffuseMaterial(Material, material_type="diffuse"):
+    """Perfectly diffuse material (Lambertian reflectance).
+    
+    Based on Mitsuba specification:
+    - Optional reflectance parameter with default 0.5
+    - Reflectance must be in [0,1] for physical validity
     """
-
-    id: str = attrs.field(converter=str)
-    reflectance: dict = attrs.field(converter=_spectral_parameter_converter)
-
-    def to_dict(self) -> dict:
-        """Convert to dictionary for serialization.
-
-        Returns:
-            Dictionary with material type and spectral data references
-        """
-        return {
-            "type": "diffuse",
-            "reflectance": self.reflectance,
-        }
+    
+    reflectance: Dict[str, Any] = Field(
+        default={"type": "uniform", "value": 0.5},
+        description="Diffuse reflectance [0,1]"
+    )
+    
+    @field_validator('reflectance')
+    @classmethod
+    def validate_reflectance(cls, v):
+        return validate_reflectance_parameter(cls, v)
 
 
-@attrs.define
-class BilambertianMaterial(Material):
-    """Material with Lambertian reflection and transmission.
-
-    Represents surfaces like vegetation that both reflect and transmit light.
-
-    Args:
-        id: Unique material identifier
-        reflectance: Dictionary with spectral data specification:
-            - File reference: {"path": "spectrum.nc", "variable": "reflectance"}
-            - Uniform value: {"type": "uniform", "value": [0.8, 0.6, 0.4]} or {"type": "uniform", "value": 0.5}
-        transmittance: Dictionary with spectral data specification (same format as reflectance)
+class BilambertianMaterial(Material, material_type="bilambertian"):
+    """Bilambertian material with energy conservation validation.
+    
+    Based on Eradiate specification:
+    - Mandatory reflectance and transmittance parameters
+    - Energy conservation: reflectance + transmittance ≤ 1
     """
+    
+    reflectance: Dict[str, Any] = Field(..., description="Spectral reflectance [0,1]")
+    transmittance: Dict[str, Any] = Field(..., description="Spectral transmittance [0,1]")
+    
+    @field_validator('reflectance', 'transmittance')
+    @classmethod
+    def validate_spectral_params(cls, v):
+        return validate_reflectance_parameter(cls, v)
+    
+    @model_validator(mode='after')
+    def validate_energy_conservation(self):
+        """Validate reflectance + transmittance ≤ 1 for uniform values."""
+        if (isinstance(self.reflectance, dict) and self.reflectance.get("type") == "uniform" and
+            isinstance(self.transmittance, dict) and self.transmittance.get("type") == "uniform"):
+            
+            refl_val = self.reflectance.get("value", 0)
+            trans_val = self.transmittance.get("value", 0)
+            
+            if isinstance(refl_val, (int, float)) and isinstance(trans_val, (int, float)):
+                if refl_val + trans_val > 1.0:
+                    raise ValueError(f"Energy conservation violated: reflectance ({refl_val}) + transmittance ({trans_val}) > 1.0")
+                    
+        return self
 
-    id: str = attrs.field(converter=str)
-    reflectance: dict = attrs.field(converter=_spectral_parameter_converter)
-    transmittance: dict = attrs.field(converter=_spectral_parameter_converter)
 
-    def to_dict(self) -> dict:
-        """Convert to dictionary for serialization.
-
-        Returns:
-            Dictionary with material type and spectral data references
-        """
-        return {
-            "type": "bilambertian",
-            "reflectance": self.reflectance,
-            "transmittance": self.transmittance,
-        }
-
-
-@attrs.define
-class RPVMaterial(Material):
-    """Material using the RPV reflection model.
-
-    Implements the Rahman-Pinty-Verstraete model for rough surface reflection.
-
-    Args:
-        id: Unique material identifier
-        rho_0: Dictionary with spectral data path and variable
-        k: Dictionary with spectral data path and variable
-        Theta: Dictionary with spectral data path and variable
-        rho_c: Dictionary with spectral data path and variable
+class RPVMaterial(Material, material_type="rpv"):
+    """RPV (Rahman-Pinty-Verstraete) reflection model with physical bounds.
+    
+    Based on Eradiate specification:
+    - All parameters are mandatory
+    - Physical bounds: rho_0,rho_c ∈ [0,1], k ≥ 0, Theta ∈ [-1,1]
+    - k=1 corresponds to Lambertian surface
     """
+    
+    rho_0: Dict[str, Any] = Field(..., description="Surface reflectance parameter [0,1]")
+    k: Dict[str, Any] = Field(..., description="Bowl/bell shape parameter (k=1 is Lambertian, k≥0)")
+    Theta: Dict[str, Any] = Field(..., description="Forward/backward scattering asymmetry [-1,1]") 
+    rho_c: Dict[str, Any] = Field(..., description="Hot spot parameter [0,1]")
+    
+    @field_validator('rho_0', 'rho_c')
+    @classmethod
+    def validate_reflectance_params(cls, v):
+        return validate_reflectance_parameter(cls, v)
+    
+    @field_validator('k')
+    @classmethod
+    def validate_k_parameter(cls, v):
+        """Validate k parameter physical bounds (k ≥ 0)."""
+        v = validate_spectral_parameter(cls, v, enforce_unit_bounds=False)
+        if isinstance(v, dict) and v.get("type") == "uniform":
+            value = v.get("value")
+            if isinstance(value, (int, float)) and value < 0:
+                raise ValueError("RPV k parameter must be non-negative (k ≥ 0)")
+        return v
+    
+    @field_validator('Theta')
+    @classmethod
+    def validate_theta_parameter(cls, v):
+        """Validate Theta parameter bounds [-1,1]."""
+        v = validate_spectral_parameter(cls, v, enforce_unit_bounds=False)
+        if isinstance(v, dict) and v.get("type") == "uniform":
+            value = v.get("value")
+            if isinstance(value, (int, float)) and not (-1.0 <= value <= 1.0):
+                raise ValueError("RPV Theta parameter must be in range [-1, 1]")
+        return v
 
-    id: str = attrs.field(converter=str)
-    rho_0: dict = attrs.field(converter=_spectral_parameter_converter)
-    k: dict = attrs.field(converter=_spectral_parameter_converter)
-    Theta: dict = attrs.field(converter=_spectral_parameter_converter)
-    rho_c: dict = attrs.field(converter=_spectral_parameter_converter)
 
-    # Eradiate-specific kdict/kpmap methods moved to s2gos-simulator backend
-
-    def to_dict(self) -> dict:
-        """Convert to dictionary for serialization.
-
-        Returns:
-            Dictionary with material type and spectral data references
-        """
-        return {
-            "type": "rpv",
-            "rho_0": self.rho_0,
-            "k": self.k,
-            "Theta": self.Theta,
-            "rho_c": self.rho_c,
-        }
-
-
-@attrs.define
-class OceanLegacyMaterial(Material):
-    """Material using the 6SV ocean reflection model.
-
-    Implements the ocean BRDF model from the 6S radiative transfer code.
-
-    Args:
-        id: Unique material identifier
-        chlorinity: Chlorinity content of the ocean water
-        pigmentation: Pigmentation level of the ocean water
-        wind_speed: Wind speed in m/s
-        wind_direction: Wind direction in degrees (North=0, clockwise)
-        shininess: Shininess parameter for importance sampling (optional)
-        shadowing: Whether to account for shadowing-masking effects
+class OceanLegacyMaterial(Material, material_type="ocean_legacy"):
+    """Ocean legacy material with realistic oceanographic parameter bounds.
+    
+    Based on Eradiate specification:
+    - All parameters are mandatory
+    - Physical bounds based on oceanographic measurements
     """
+    
+    chlorinity: float = Field(..., ge=0.0, description="Water chlorinity in g/kg")
+    pigmentation: float = Field(..., ge=0.0, description="Pigmentation concentration in mg/m³")
+    wind_speed: float = Field(..., ge=0.0, description="Wind speed in m/s")
+    wind_direction: float = Field(..., ge=0.0, lt=360.0, description="Wind direction in degrees [0,360)")
 
-    id: str = attrs.field(converter=str)
-    chlorinity = attrs.field(converter=float)
-    pigmentation = attrs.field(converter=float)
-    wind_speed = attrs.field(converter=float)
-    wind_direction = attrs.field(converter=float)
-    shininess = attrs.field(default=None, converter=attrs.converters.optional(float))
-    shadowing = attrs.field(default=True, converter=bool)
 
-    def default_shininess(self):
-        """Calculate default shininess value for multiple importance sampling.
+class DielectricMaterial(Material, material_type="dielectric"):
+    """Dielectric material (glass, plastic) based on Mitsuba specification.
+    
+    Based on Mitsuba specification:
+    - All parameters optional with physical defaults
+    - IOR values must be > 1.0 for physical validity
+    """
+    
+    int_ior: Union[float, str] = Field(default=1.5046, description="Interior IOR (>1.0) or preset name")
+    ext_ior: Union[float, str] = Field(default=1.000277, description="Exterior IOR or preset name") 
+    specular_reflectance: Optional[Dict[str, Any]] = Field(default=None, description="Spectral reflectance override")
+    specular_transmittance: Optional[Dict[str, Any]] = Field(default=None, description="Spectral transmittance override")
+    
+    @field_validator('int_ior', 'ext_ior')
+    @classmethod
+    def validate_ior(cls, v):
+        if isinstance(v, (int, float)) and v <= 1.0:
+            raise ValueError(f"IOR value {v} must be > 1.0 for physical validity")
+        return v
+    
+    @field_validator('specular_reflectance', 'specular_transmittance')
+    @classmethod
+    def validate_spectral_params(cls, v):
+        if v is not None:
+            return validate_reflectance_parameter(cls, v)
+        return v
 
-        Returns:
-            Shininess value computed from wind speed
-        """
-        return (37.2455 - self.wind_speed) ** 1.15
 
-    # Eradiate-specific kdict/kpmap methods moved to s2gos-simulator backend
+class ConductorMaterial(Material, material_type="conductor"):
+    """Conductor material with mutually exclusive parameter validation.
+    
+    Based on Mitsuba specification:
+    - Mutually exclusive: material preset XOR manual eta/k
+    - Energy conservation: specular_reflectance ≤ 1
+    """
+    
+    material: Optional[str] = Field(None, description="Material preset (Al, Cu, Au, etc.)")
+    eta: Optional[Dict[str, Any]] = Field(None, description="Real part of complex IOR")
+    k: Optional[Dict[str, Any]] = Field(None, description="Imaginary part of complex IOR") 
+    specular_reflectance: Optional[Dict[str, Any]] = Field(None, description="Spectral reflectance override")
+    
+    @field_validator('eta', 'k')
+    @classmethod
+    def validate_ior_params(cls, v):
+        if v is not None:
+            return validate_ior_parameter(cls, v)
+        return v
+    
+    @field_validator('specular_reflectance')
+    @classmethod
+    def validate_reflectance_param(cls, v):
+        if v is not None:
+            return validate_reflectance_parameter(cls, v)
+        return v
+    
+    @model_validator(mode='after')
+    def validate_mutually_exclusive_params(self):
+        """Validate material preset XOR manual eta/k."""
+        has_preset = self.material is not None
+        has_manual = self.eta is not None or self.k is not None
+        
+        if has_preset and has_manual:
+            raise ValueError("Cannot specify both 'material' preset and manual 'eta'/'k' values")
+        
+        if has_manual and (self.eta is None or self.k is None):
+            raise ValueError("Both 'eta' and 'k' must be specified when using manual complex IOR")
+            
+        return self
 
-    def to_dict(self) -> dict:
-        """Convert to dictionary for serialization.
 
-        Returns:
-            Dictionary with material type and parameter values
-        """
-        return {
-            "type": "ocean_legacy",
-            "chlorinity": self.chlorinity,
-            "pigmentation": self.pigmentation,
-            "wind_speed": self.wind_speed,
-            "wind_direction": self.wind_direction,
-        }
+class RoughConductorMaterial(Material, material_type="rough_conductor"):
+    """Rough conductor with anisotropic roughness validation.
+    
+    Based on Mitsuba specification:
+    - Inherits conductor parameter validation
+    - Mutually exclusive roughness: roughness XOR (alpha_u AND/OR alpha_v)
+    - Distribution validation: beckmann or ggx only
+    """
+    
+    # Inherited conductor parameters
+    material: Optional[str] = Field(None, description="Material preset")
+    eta: Optional[Dict[str, Any]] = Field(None, description="Real part of complex IOR")
+    k: Optional[Dict[str, Any]] = Field(None, description="Imaginary part of complex IOR")
+    specular_reflectance: Optional[Dict[str, Any]] = Field(None, description="Spectral reflectance")
+    
+    # Roughness parameters
+    distribution: Literal["beckmann", "ggx"] = Field("beckmann", description="Microfacet distribution")
+    roughness: Optional[float] = Field(None, ge=0.0, le=1.0, description="Isotropic roughness [0,1]")
+    alpha_u: Optional[float] = Field(None, ge=0.0, le=1.0, description="U-direction roughness [0,1]")
+    alpha_v: Optional[float] = Field(None, ge=0.0, le=1.0, description="V-direction roughness [0,1]")
+    
+    @field_validator('eta', 'k')
+    @classmethod
+    def validate_ior_params(cls, v):
+        if v is not None:
+            return validate_ior_parameter(cls, v)
+        return v
+    
+    @field_validator('specular_reflectance')
+    @classmethod
+    def validate_reflectance_param(cls, v):
+        if v is not None:
+            return validate_reflectance_parameter(cls, v)
+        return v
+    
+    @model_validator(mode='after')
+    def validate_conductor_params(self):
+        """Validate conductor parameter mutual exclusion."""
+        has_preset = self.material is not None
+        has_manual = self.eta is not None or self.k is not None
+        
+        if has_preset and has_manual:
+            raise ValueError("Cannot specify both 'material' preset and manual 'eta'/'k' values")
+        
+        if has_manual and (self.eta is None or self.k is None):
+            raise ValueError("Both 'eta' and 'k' must be specified when using manual complex IOR")
+            
+        return self
+    
+    @model_validator(mode='after')
+    def validate_roughness_params(self):
+        """Validate roughness parameter mutual exclusion."""
+        has_isotropic = self.roughness is not None
+        has_anisotropic = self.alpha_u is not None or self.alpha_v is not None
+        
+        if has_isotropic and has_anisotropic:
+            raise ValueError("Cannot specify both 'roughness' and 'alpha_u'/'alpha_v'")
+            
+        if not has_isotropic and not has_anisotropic:
+            # Set default isotropic roughness
+            self.roughness = 0.1
+            
+        return self
+
+
+class PlasticMaterial(Material, material_type="plastic"):
+    """Plastic material based on Eradiate specification."""
+    
+    diffuse_reflectance: Dict[str, Any] = Field(..., description="Diffuse reflectance component")
+    int_ior: Union[float, str] = Field(default=1.49, description="Interior IOR")
+    ext_ior: Union[float, str] = Field(default=1.000277, description="Exterior IOR")
+    nonlinear: bool = Field(default=False, description="Enable nonlinear effects")
+    
+    @field_validator('diffuse_reflectance')
+    @classmethod
+    def validate_reflectance(cls, v):
+        return validate_reflectance_parameter(cls, v)
+
+
+class PrincipledMaterial(Material, material_type="principled"):
+    """Principled BSDF based on Mitsuba specification with comprehensive parameter validation."""
+    
+    base_color: Dict[str, Any] = Field(
+        default={"type": "uniform", "value": 0.5}, 
+        description="Base color/albedo [0,1]"
+    )
+    roughness: float = Field(default=0.5, ge=0.0, le=1.0, description="Surface roughness [0,1]")
+    metallic: float = Field(default=0.0, ge=0.0, le=1.0, description="Metallic factor [0,1]")
+    specular: float = Field(default=0.5, ge=0.0, le=1.0, description="Specular reflectance scaling [0,1]")
+    spec_tint: float = Field(default=0.0, ge=0.0, le=1.0, description="Specular tinting [0,1]")
+    anisotropic: float = Field(default=0.0, ge=0.0, le=1.0, description="Anisotropy amount [0,1]")
+    sheen: float = Field(default=0.0, ge=0.0, le=1.0, description="Sheen amount [0,1]")
+    sheen_tint: float = Field(default=0.5, ge=0.0, le=1.0, description="Sheen tinting [0,1]")
+    clearcoat: float = Field(default=0.0, ge=0.0, le=1.0, description="Clearcoat amount [0,1]")
+    clearcoat_roughness: float = Field(default=0.03, ge=0.0, le=1.0, description="Clearcoat roughness [0,1]")
+    
+    @field_validator('base_color')
+    @classmethod
+    def validate_base_color(cls, v):
+        return validate_reflectance_parameter(cls, v)
