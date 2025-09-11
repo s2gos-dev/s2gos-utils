@@ -11,11 +11,12 @@ from .definitions import (
     DielectricMaterial,
     DiffuseMaterial,
     Material,
+    MeasuredMaterial,
     OceanLegacyMaterial,
     PlasticMaterial,
     PrincipledMaterial,
-    RPVMaterial,
     RoughConductorMaterial,
+    RPVMaterial,
 )
 from .enums import BackgroundMaterial, MaterialType
 from .loader import MaterialConfigLoader, get_landcover_mapping, load_materials
@@ -31,6 +32,7 @@ __all__ = [
     "RoughConductorMaterial",
     "PlasticMaterial",
     "PrincipledMaterial",
+    "MeasuredMaterial",
     "MaterialConfigLoader",
     "load_materials",
     "get_landcover_mapping",
