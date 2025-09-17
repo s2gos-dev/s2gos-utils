@@ -11,10 +11,10 @@ from upath import UPath
 class CoordinateSystem:
     """
     Coordinate system for precise geometric operations.
-    
-    Uses azimuthal equidistant projection centered on a reference point for accurate
+
+    Uses oblique mercator projection centered on a reference point for accurate
     distance and area calculations within typical scene sizes (~10-200 km).
-    
+
     The coordinate system is cached for performance - create once, use many times.
     """
     
@@ -31,7 +31,7 @@ class CoordinateSystem:
         
         self.wgs84_crs = CRS("EPSG:4326")
         self.scene_crs = CRS(
-            f"+proj=aeqd +lat_0={center_lat} +lon_0={center_lon} +ellps=WGS84 +units=m"
+            f"+proj=omerc +lat_0={center_lat} +lonc={center_lon} +alpha=0 +gamma=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +units=m"
         )
         
         self._to_scene_transformer = Transformer.from_crs(
@@ -290,10 +290,10 @@ class CoordinateSystem:
     def projection_info(self) -> Dict[str, str]:
         """Get information about the coordinate projection."""
         return {
-            "projection": "Azimuthal Equidistant",
+            "projection": "Oblique Mercator",
             "center_lat": f"{self.center_lat:.6f}",
-            "center_lon": f"{self.center_lon:.6f}", 
-            "proj_string": f"+proj=aeqd +lat_0={self.center_lat} +lon_0={self.center_lon} +ellps=WGS84 +units=m",
+            "center_lon": f"{self.center_lon:.6f}",
+            "proj_string": f"+proj=omerc +lat_0={self.center_lat} +lonc={self.center_lon} +alpha=0 +gamma=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +units=m",
             "use_case": "Scene-local coordinate operations with preserved distances and areas"
         }
 
