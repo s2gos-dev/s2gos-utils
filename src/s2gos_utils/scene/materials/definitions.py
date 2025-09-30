@@ -143,6 +143,7 @@ class Material(BaseModel):
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization."""
         data = self.model_dump()
+        data.pop("id", None)
         # Add type field based on class registration
         for type_name, class_type in self._registry.items():
             if isinstance(self, class_type):
@@ -502,12 +503,11 @@ class PrincipledMaterial(Material, material_type="principled"):
 
 class MeasuredMaterial(Material, material_type="measured"):
     """Measured BSDF material using external .bsdf files.
-    
+
     Based on Mitsuba's measured BSDF plugin for loading material data
     from pre-computed BRDF measurements stored in .bsdf files.
     """
-    
+
     filename: str = Field(
-        ..., 
-        description="Path to .bsdf file containing measured BRDF data"
+        ..., description="Path to .bsdf file containing measured BRDF data"
     )
