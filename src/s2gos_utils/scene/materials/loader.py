@@ -69,11 +69,57 @@ class MaterialConfigLoader:
         base_dir = UPath(self.config_path).parent if self.config_path else None
 
         for material_id, material_config in config["materials"].items():
-            materials[material_id] = Material.from_dict(
-                material_config, id=material_id, base_dir=base_dir
-            )
+            resolved_config = self._resolve_spectral_paths(material_config, base_dir)
+            materials[material_id] = Material.from_dict(resolved_config, id=material_id)
 
         return materials
+
+    def _resolve_spectral_paths(
+        self, material_config: Dict[str, Any], base_dir: Optional[UPath]
+    ) -> Dict[str, Any]:
+        """Resolve relative spectral file paths to absolute paths and validate existence.
+
+        Args:
+            material_config: Material configuration dictionary
+            base_dir: Base directory for resolving relative paths
+
+        Returns:
+            Material configuration with resolved absolute paths
+
+        Raises:
+            FileNotFoundError: If a spectral file does not exist
+        """
+        if base_dir is None:
+            return material_config
+
+        import copy
+
+        config = copy.deepcopy(material_config)
+
+        def resolve_paths(obj):
+            if isinstance(obj, dict):
+                if "path" in obj and "variable" in obj:
+                    path = UPath(obj["path"])
+                    if not path.is_absolute():
+                        resolved_path = (base_dir / path).resolve()
+                        obj["path"] = str(resolved_path)
+                    else:
+                        resolved_path = path
+
+                    if not exists(resolved_path):
+                        raise FileNotFoundError(
+                            f"Spectral data file not found: {resolved_path}\n"
+                            f"Original path: {path}\n"
+                            f"Base directory: {base_dir}"
+                        )
+                for value in obj.values():
+                    resolve_paths(value)
+            elif isinstance(obj, list):
+                for item in obj:
+                    resolve_paths(item)
+
+        resolve_paths(config)
+        return config
 
     def load_material(self, material_id: str) -> Material:
         """Load a specific material by ID.
@@ -92,11 +138,11 @@ class MaterialConfigLoader:
         if material_id not in config["materials"]:
             raise KeyError(f"Material '{material_id}' not found in configuration")
 
-        # Get base directory for resolving relative paths
         base_dir = self.config_path.parent if self.config_path else None
 
         material_config = config["materials"][material_id]
-        return Material.from_dict(material_config, id=material_id, base_dir=base_dir)
+        resolved_config = self._resolve_spectral_paths(material_config, base_dir)
+        return Material.from_dict(resolved_config, id=material_id)
 
     def get_landcover_mapping(self) -> Dict[str, str]:
         """Get the landcover to material mapping.
