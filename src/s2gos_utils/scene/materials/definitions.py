@@ -10,11 +10,13 @@ def validate_spectral_parameter(cls, v, enforce_unit_bounds=True):
     Validates spectral parameters according to both Eradiate and Mitsuba specifications:
     - File-based: {"path": "spectrum.nc", "variable": "reflectance"}
     - Uniform: {"type": "uniform", "value": 0.5} or {"type": "uniform", "value": [0.8, 0.6, 0.4]}
+    - Interpolated: {"type": "interpolated", "wavelengths": [400, 500, 600], "values": [0.2, 0.5, 0.3]}
 
     Physical constraints:
     - Reflectance/transmittance values must be in [0,1] for energy conservation (enforce_unit_bounds=True)
     - IOR values can be outside [0,1] (enforce_unit_bounds=False)
     - File paths must exist (when not None)
+    - Wavelengths must be monotonically increasing (for interpolated type)
 
     Args:
         cls: Validator class
@@ -50,6 +52,62 @@ def validate_spectral_parameter(cls, v, enforce_unit_bounds=True):
                 f"Uniform value must be scalar or 3-component RGB, got {type(value).__name__}"
             )
 
+    elif "type" in v and v["type"] == "interpolated":
+        if "wavelengths" not in v or "values" not in v:
+            raise ValueError(
+                "Interpolated spectrum must have 'wavelengths' and 'values' fields"
+            )
+
+        wavelengths = v["wavelengths"]
+        values = v["values"]
+
+        if not isinstance(wavelengths, (list, tuple)):
+            raise ValueError(
+                f"wavelengths must be a list or tuple, got {type(wavelengths).__name__}"
+            )
+        if not isinstance(values, (list, tuple)):
+            raise ValueError(
+                f"values must be a list or tuple, got {type(values).__name__}"
+            )
+
+        if len(wavelengths) != len(values):
+            raise ValueError(
+                f"wavelengths ({len(wavelengths)}) and values ({len(values)}) must have the same length"
+            )
+
+        if len(wavelengths) < 2:
+            raise ValueError(
+                f"Interpolated spectrum must have at least 2 wavelength points, got {len(wavelengths)}"
+            )
+
+        for i, wl in enumerate(wavelengths):
+            if not isinstance(wl, (int, float)):
+                raise ValueError(
+                    f"wavelength[{i}] must be numeric, got {type(wl).__name__}"
+                )
+            if wl <= 0:
+                raise ValueError(f"wavelength[{i}] must be positive, got {wl}")
+
+        for i, val in enumerate(values):
+            if not isinstance(val, (int, float)):
+                raise ValueError(
+                    f"value[{i}] must be numeric, got {type(val).__name__}"
+                )
+            if enforce_unit_bounds and not (0.0 <= val <= 1.0):
+                raise ValueError(f"value[{i}] = {val} must be in [0,1]")
+
+        for i in range(len(wavelengths) - 1):
+            if wavelengths[i] >= wavelengths[i + 1]:
+                raise ValueError(
+                    f"wavelengths must be monotonically increasing: "
+                    f"wavelengths[{i}] = {wavelengths[i]} >= wavelengths[{i + 1}] = {wavelengths[i + 1]}"
+                )
+
+        # Optional wavelength_unit field (default is 'nm')
+        if "wavelength_unit" in v:
+            if not isinstance(v["wavelength_unit"], str):
+                raise ValueError("wavelength_unit must be a string")
+
     elif "path" in v and "variable" in v:
         # File-based spectral data validation
         if not isinstance(v["path"], str) or not isinstance(v["variable"], str):
@@ -59,7 +117,10 @@ def validate_spectral_parameter(cls, v, enforce_unit_bounds=True):
         # Note: File existence check is optional to support dynamic paths
     else:
         raise ValueError(
-            "Spectral parameter must be either file reference ({'path': ..., 'variable': ...}) or uniform value ({'type': 'uniform', 'value': ...})"
+            "Spectral parameter must be one of: "
+            "file reference ({'path': ..., 'variable': ...}), "
+            "uniform value ({'type': 'uniform', 'value': ...}), or "
+            "interpolated spectrum ({'type': 'interpolated', 'wavelengths': [...], 'values': [...]})"
         )
 
     return v
