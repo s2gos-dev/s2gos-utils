@@ -270,6 +270,38 @@ class CoordinateSystem:
 
         return None
 
+    def spherical_to_cartesian(
+        self,
+        zenith_deg: float,
+        azimuth_deg: float,
+        distance: float,
+        center_point: Tuple[float, float, float] = (0, 0, 0),
+    ) -> Tuple[float, float, float]:
+        """
+        Convert spherical coordinates to Cartesian position in scene coordinates.
+
+        Args:
+            zenith_deg: Zenith angle in degrees (0=down/nadir, 90=horizontal, 180=up/zenith)
+            azimuth_deg: Azimuth angle in degrees (0=East, 90=North, 180=West, 270=South)
+            distance: Distance from center point in meters
+            center_point: Center point (x, y, z) in scene coordinates (default: origin)
+
+        Returns:
+            Tuple of (x, y, z) position in scene coordinates
+        """
+        zen_rad = np.radians(zenith_deg)
+        az_rad = np.radians(azimuth_deg)
+
+        dx = distance * np.sin(zen_rad) * np.cos(az_rad)
+        dy = distance * np.sin(zen_rad) * np.sin(az_rad)
+        dz = distance * np.cos(zen_rad)
+
+        return (
+            center_point[0] + dx,
+            center_point[1] + dy,
+            center_point[2] + dz,
+        )
+
     @property
     def center_coordinates(self) -> Tuple[float, float]:
         """Get scene center coordinates as (lat, lon) tuple."""
