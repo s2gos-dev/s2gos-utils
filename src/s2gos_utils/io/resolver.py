@@ -68,12 +68,13 @@ class FileResolver:
         """Clear the list of search paths."""
         self.paths.clear()
 
-    def resolve(self, path: PathLike, strict: bool = False) -> UPath:
+    def resolve(self, path: PathLike, strict: bool = True) -> UPath:
         """Resolve a path by searching registered locations in order.
 
         Args:
             path: Path to be resolved
-            strict: If True, resolution failure will raise
+            strict: If True (default), resolution failure will raise FileNotFoundError.
+                   Set to False to return unresolved path (not recommended).
 
         Returns:
             Resolved UPath object
@@ -94,8 +95,14 @@ class FileResolver:
                     return candidate
 
         if strict:
+            search_paths_str = "\n  - ".join([str(p) for p in self.paths])
             raise FileNotFoundError(
-                f"Could not resolve '{path}' in search paths: {[str(p) for p in self.paths]}"
+                f"Could not resolve '{path}' in any search path.\n"
+                f"Searched in:\n  - {search_paths_str}\n\n"
+                f"To fix this:\n"
+                f"  1. Check that the file exists in one of the above locations\n"
+                f"  2. Add additional search paths via S2GOS_SEARCH_PATHS environment variable\n"
+                f"  3. Provide an absolute path instead of a relative filename"
             )
 
         return upath
