@@ -28,6 +28,7 @@ class SceneDescription:
     background: Optional[Dict[str, Any]] = None
     objects: List[Dict[str, Any]] = field(default_factory=list)
     material_indices: Dict[int, str] = field(default_factory=dict)
+    material_regions: List[Dict[str, Any]] = field(default_factory=list)
 
     metadata: Dict[str, Any] = field(default_factory=dict)
 
@@ -63,6 +64,8 @@ class SceneDescription:
             result["objects"] = self.objects
         if self.material_indices:
             result["material_indices"] = self.material_indices
+        if self.material_regions:
+            result["material_regions"] = self.material_regions
 
         # Only include metadata if it has useful data
         if self.metadata:
