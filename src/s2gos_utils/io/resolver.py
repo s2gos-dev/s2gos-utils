@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import importlib.resources
 import os
 
 import attrs
 from upath import UPath
 
+from ..setting import settings
 from ..typing import PathLike
 
 
@@ -147,20 +147,7 @@ def create_default_resolver() -> FileResolver:
     """Create a resolver with smart defaults for s2gos."""
     search_paths = []
 
-    try:
-        gen_package_data = importlib.resources.files("s2gos_generator") / "data"
-        if UPath(str(gen_package_data)).exists():
-            search_paths.append(str(gen_package_data))
-    except (ImportError, FileNotFoundError):
-        pass
-
-    user_paths = []
-    package_data = importlib.resources.files("s2gos_utils.io")
-    with (UPath(str(package_data)) / "defaults.txt").open("r") as f:
-        for line in f:
-            path = line.strip()
-            user_paths.append(path)
-
+    user_paths = settings.common.search_paths
     for path in user_paths:
         upath = UPath(path)
         if upath.exists():

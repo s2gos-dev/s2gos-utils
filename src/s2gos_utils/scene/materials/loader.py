@@ -5,6 +5,7 @@ from upath import UPath
 
 from .definitions import Material
 from ...io.paths import exists, read_json
+from ...io.resolver import resolver
 from ...typing import PathLike
 from ...versioning import validate_config_version
 
@@ -20,9 +21,7 @@ class MaterialConfigLoader:
         """
         if config_path is None:
             # Use proper importlib.resources to access package data
-            config_path = (
-                importlib.resources.files("s2gos_generator") / "data" / "materials.json"
-            )
+            config_path = resolver.resolve("./materials.json")
 
         self.config_path = UPath(config_path)
         self._config_cache: Optional[Dict[str, Any]] = None
