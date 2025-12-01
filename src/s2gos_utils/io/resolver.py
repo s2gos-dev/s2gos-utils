@@ -43,7 +43,10 @@ class FileResolver:
         if not upath.exists():
             raise FileNotFoundError(f"Path does not exist: {upath}")
 
-        if avoid_duplicates and upath not in self.paths:
+        if avoid_duplicates:
+            if upath not in self.paths:
+                self.paths.append(upath)
+        else:
             self.paths.append(upath)
 
     def prepend(self, path: PathLike, avoid_duplicates: bool = True) -> None:
@@ -61,7 +64,10 @@ class FileResolver:
         if not upath.exists():
             raise FileNotFoundError(f"Path does not exist: {upath}")
 
-        if avoid_duplicates and upath not in self.paths:
+        if avoid_duplicates:
+            if upath not in self.paths:
+                self.paths.insert(0, upath)
+        else:
             self.paths.insert(0, upath)
 
     def clear(self) -> None:
