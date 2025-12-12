@@ -1,4 +1,3 @@
-import importlib.resources
 from typing import Any, Dict, Optional
 
 from upath import UPath
