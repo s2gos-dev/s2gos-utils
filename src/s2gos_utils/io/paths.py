@@ -140,3 +140,7 @@ def normalize_path(path: PathLike) -> str:
     Always returns a string for configuration compatibility.
     """
     return str(UPath(path))
+
+def expand_mapper(path: UPath):
+    """Expands a UPath to a FSMapper."""
+    return path.fs.get_mapper(path.path)
