@@ -1,5 +1,6 @@
 from .paths import (
     exists,
+    expand_mapper,
     is_remote_path,
     mkdir,
     normalize_path,
@@ -17,6 +18,7 @@ from .resolver import FileResolver, resolver
 __all__ = [
     "open_file",
     "exists",
+    "expand_mapper"
     "read_feather",
     "read_geofeather",
     "read_json",
