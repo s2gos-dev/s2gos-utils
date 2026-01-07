@@ -1,5 +1,5 @@
 # import os
-import os
+import pathlib
 from typing import Annotated, Any
 
 from pydantic import GetCoreSchemaHandler
@@ -15,10 +15,17 @@ class UPathType:
         cls, source: type[Any], handler: GetCoreSchemaHandler
     ) -> core_schema.CoreSchema:
         """Define how Pydantic should validate and serialize UPath."""
-        schema = handler(os.PathLike)
+        # Accept UPath + subclasses
+        upath_schema = core_schema.is_instance_schema(UPath)
+
+        # Accept strings and pathlib.Path
+        str_schema = core_schema.str_schema()
+        path_schema = core_schema.is_instance_schema(pathlib.Path)
+
+        union_schema = core_schema.union_schema([upath_schema, path_schema, str_schema])
         return core_schema.no_info_after_validator_function(
             cls.validate,
-            schema,
+            union_schema,
         )
 
     @staticmethod
