@@ -89,6 +89,13 @@ class FileResolver:
         """
         upath = UPath(path)
 
+        # NOTE: The "https" protocol returns False on calls to `exists`. This is 
+        # a hack to go around the issue. We need to understand which protocols 
+        # are unreliable and either find a reliable check or bypass the list 
+        # of unreliable protocols.
+        if (upath.is_absolute() and upath.protocol == "https"):
+            return upath
+
         # If already absolute or remote and exists, return as-is
         if (upath.is_absolute() or upath.protocol != "file") and upath.exists():
             return upath
