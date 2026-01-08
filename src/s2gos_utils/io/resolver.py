@@ -5,7 +5,6 @@ import os
 import attrs
 from upath import UPath
 
-from ..setting import settings
 from ..typing import PathLike
 
 
@@ -152,12 +151,6 @@ class FileResolver:
 def create_default_resolver() -> FileResolver:
     """Create a resolver with smart defaults for s2gos."""
     search_paths = []
-
-    user_paths = settings.common.search_paths
-    for path in user_paths:
-        upath = UPath(path)
-        if upath.exists():
-            search_paths.append(path)
 
     resolver = FileResolver()
     for path in search_paths:

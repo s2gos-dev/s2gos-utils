@@ -1,6 +1,8 @@
 import aiohttp
-from dynaconf.utils.boxing import DynaBox
+from dynaconf.utils.boxing import DynaBox, Box
 from upath import UPath
+
+from ..io.resolver import resolver
 
 
 def to_https_upath(path: str, ps: dict) -> UPath:
@@ -32,13 +34,13 @@ def to_upath(path_setting: DynaBox | dict | str) -> UPath:
 
     """
     if isinstance(path_setting, str):
-        return UPath(path_setting)
+        return resolver.resolve(UPath(path_setting))
 
     ps = path_setting.copy()
-    if isinstance(path_setting, DynaBox):
+    if isinstance(path_setting, (DynaBox, Box)):
         ps = ps.to_dict()
 
-    elif isinstance(ps, dict):
+    if isinstance(ps, dict):
         path = ps.pop("value")
 
         # Check for specific protocol factories
@@ -47,7 +49,7 @@ def to_upath(path_setting: DynaBox | dict | str) -> UPath:
             return upath_factories[protocol](path, ps)
 
         # default initialize using existing path and kwargs.
-        return UPath(path, **ps)
+        return resolver.resolve(UPath(path, **ps))
 
     else:
         raise NotImplementedError("`path_setting` must either be a `str` or `dict`.")

@@ -1,4 +1,7 @@
 from dynaconf import Dynaconf, Validator
+from upath import UPath
+
+from ..io.resolver import resolver
 
 
 def path(settings=None, validator=None) -> list:
@@ -17,3 +20,13 @@ settings = Dynaconf(
     ],
     validate_only="common",
 )
+
+def load_config():
+    """
+    Initialize the resolver with the search paths.
+    """
+    user_paths = settings.common.search_paths
+    for path in user_paths:
+        upath = UPath(path)
+        if upath.exists():
+            resolver.append(path)

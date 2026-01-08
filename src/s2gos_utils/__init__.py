@@ -1,3 +1,11 @@
+from .setting import settings, load_config
+
+# Start by loading the config. Currently required so that other imports work.
+# This is code smell.. MaterialConfigLoader is also initialized globally.
+# Might need to consider better syster management or proper lazy loading.
+load_config()
+
+
 from .io.paths import (
     exists,
     is_remote_path,
