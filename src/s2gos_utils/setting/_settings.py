@@ -10,6 +10,7 @@ def path(settings=None, validator=None) -> list:
 
 settings = Dynaconf(
     settings_files=["s2gos_settings.yaml", "s2gos_settings.toml"],
+    secrets=".secrets.yaml",
     envvar_prefix="S2GOS",
     validators=[
         Validator(
