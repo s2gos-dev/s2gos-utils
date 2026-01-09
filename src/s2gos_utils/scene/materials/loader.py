@@ -22,7 +22,7 @@ class MaterialConfigLoader:
             # Use proper importlib.resources to access package data
             config_path = resolver.resolve("./materials.json")
 
-        self.config_path = UPath(config_path)
+        self.config_path = resolver.resolve(UPath(config_path))
         self._config_cache: Optional[Dict[str, Any]] = None
 
     def _load_config(self) -> Dict[str, Any]:

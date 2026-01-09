@@ -222,28 +222,3 @@ def get_credential(credential_id: str) -> Optional[CredentialType]:
         The credential object or None if not found
     """
     return get_credential_provider().get_credential(credential_id)
-
-
-# TODO: not sure this is the right place to have it right now.
-def credential_to_upath_kwargs(cred: CredentialType) -> Dict[str, Any]:
-    """
-    Convert a credential object to UPath constructor kwargs.
-
-    Args:
-        cred: The credential object
-
-    Returns:
-        Dictionary of kwargs to pass to UPath constructor
-    """
-    if isinstance(cred, BasicAuthCredential):
-        import aiohttp
-
-        auth = aiohttp.BasicAuth(cred.username, cred.password)
-        return {"client_kwargs": {"auth": auth}}
-    elif isinstance(cred, S3Credential):
-        kwargs = {"key": cred.key, "secret": cred.secret}
-        if cred.endpoint_url:
-            kwargs["endpoint_url"] = cred.endpoint_url
-        return kwargs
-    else:
-        raise ValueError(f"Unknown credential type: {type(cred)}")

@@ -7,6 +7,7 @@ from pydantic_core import core_schema
 from upath import UPath
 
 
+# TODO: Might be able to completely remove UPathType and PathLike
 class UPathType:
     """Custom Pydantic type for UPath that provides core schema."""
 
@@ -71,12 +72,24 @@ class PathRef(BaseModel):
     """
 
     value: str = Field(description="value")
+    # TODO : rename to credential id
     cid: str | None = Field(default=None, description="Credential ID")
 
     def __init__(self, value, cid=None, **kwargs):
-        value = str(value) if isinstance(value, UPath) else value
+        
+        if isinstance(value, UPath):
+            path = str(value)
+        elif isinstance(value, PathRef):
+            path = value.value
+            cid = value.cid
+        elif isinstance(value, dict):
+            path = value["value"]
+            cid = value["cid"]
+        else:
+            path = value
+
         super(PathRef, self).__init__(
-            value=value, cid=cid, **kwargs
+            value=path, cid=cid, **kwargs
         )
 
     @model_validator(mode="before")
@@ -88,7 +101,6 @@ class PathRef(BaseModel):
         elif isinstance(value, UPath):
             cid = value.storage_options.get("cid")
             return {"value": str(value), "cid":cid}
-        
         return value
 
     @property
@@ -122,8 +134,15 @@ class PathRef(BaseModel):
             # No credentials needed (local path or public URL)
             return UPath(self.value)
 
+
+    # TODO: It is also possible to return the PathRef by joining and passing the
+    # cid. Not sure whether this is best or not.
+    def __truediv__(self, other) -> UPath:
+        """Returns the joined UPath."""
+        return self.upath / other
+
     def __str__(self) -> str:
         """Return the path value as a string"""
         return self.value
 
-    model_config = {"arbitrary_types_allowed": True}
+    model_config = {"frozen": True}

@@ -7,10 +7,19 @@ import xarray as xr
 import yaml
 from upath import UPath
 
-from ..typing import PathLike
+from ..typing import PathLike, PathRef
 
 
-def open_file(path: PathLike, mode: str = "r", **kwargs) -> Union[TextIO, BinaryIO]:
+def to_upath(path: PathLike | PathRef) -> UPath:
+    if isinstance(path, PathRef):
+        return path.upath
+    else:
+        return UPath(path)
+
+
+def open_file(
+    path: PathLike | PathRef, mode: str = "r", **kwargs
+) -> Union[TextIO, BinaryIO]:
     """Open a file using UPath for unified access across storage backends.
 
     Args:
@@ -21,7 +30,7 @@ def open_file(path: PathLike, mode: str = "r", **kwargs) -> Union[TextIO, Binary
     Returns:
         A file object.
     """
-    return UPath(path).open(mode=mode, **kwargs)
+    return to_upath(path).open(mode=mode, **kwargs)
 
 
 def read_feather(path: PathLike, **kwargs) -> pd.DataFrame:
@@ -108,25 +117,30 @@ def open_dataset(path: PathLike, **kwargs) -> xr.Dataset:
 
 def is_remote_path(path: PathLike) -> bool:
     """Check if a path is a remote URL using UPath protocol detection."""
-    return UPath(path).protocol != "file"
+    return to_upath(path).protocol != "file"
 
 
 def is_absolute_path(path: PathLike) -> bool:
     """Check if a path is absolute (works for both local and remote paths)."""
-    upath = UPath(path)
+    upath = to_upath(path)
     return upath.protocol != "file" or upath.is_absolute()
 
 
 def exists(path: PathLike) -> bool:
     """Check if path exists (local or remote) using UPath."""
-    return UPath(path).exists()
+    return to_upath(path).exists()
 
 
 def mkdir(
     path: PathLike, parents: bool = True, exist_ok: bool = True, **kwargs
 ) -> None:
     """Create directory using UPath (supports local and some remote protocols)."""
-    UPath(path).mkdir(parents=parents, exist_ok=exist_ok, **kwargs)
+    to_upath(path).mkdir(parents=parents, exist_ok=exist_ok, **kwargs)
+
+
+def copy(src: PathLike | PathRef, dst: PathLike | PathRef, **kwargs) -> None:
+    """Create directory using UPath (supports local and some remote protocols)."""
+    to_upath(src).copy(to_upath(dst), **kwargs)
 
 
 def optional_str(path: Optional[PathLike]) -> Optional[str]:
@@ -139,7 +153,8 @@ def normalize_path(path: PathLike) -> str:
 
     Always returns a string for configuration compatibility.
     """
-    return str(UPath(path))
+    return str(to_upath(path))
+
 
 def expand_mapper(path: UPath):
     """Expands a UPath to a FSMapper."""

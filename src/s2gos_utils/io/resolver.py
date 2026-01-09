@@ -5,7 +5,7 @@ import os
 import attrs
 from upath import UPath
 
-from ..typing import PathLike
+from ..typing import PathLike, PathRef
 
 
 def _validator_path_exists(instance, attribute, value: UPath):
@@ -73,7 +73,7 @@ class FileResolver:
         """Clear the list of search paths."""
         self.paths.clear()
 
-    def resolve(self, path: PathLike, strict: bool = True) -> UPath:
+    def resolve(self, path: PathLike | PathRef, strict: bool = True) -> UPath:
         """Resolve a path by searching registered locations in order.
 
         Args:
@@ -87,7 +87,10 @@ class FileResolver:
         Raises:
             FileNotFoundError: If strict=True and path not found in any search location
         """
-        upath = UPath(path)
+        if isinstance(path, PathRef):
+            upath = path.upath
+        else:
+            upath = UPath(path)
 
         # NOTE: The "https" protocol returns False on calls to `exists`. This is 
         # a hack to go around the issue. We need to understand which protocols 
@@ -102,14 +105,14 @@ class FileResolver:
 
         if not upath.is_absolute():
             for base in self.paths:
-                candidate = base / path
+                candidate = base / upath
                 if candidate.exists():
                     return candidate
 
         if strict:
             search_paths_str = "\n  - ".join([str(p) for p in self.paths])
             raise FileNotFoundError(
-                f"Could not resolve '{path}' in any search path.\n"
+                f"Could not resolve '{upath}' in any search path.\n"
                 f"Searched in:\n  - {search_paths_str}\n\n"
                 f"To fix this:\n"
                 f"  1. Check that the file exists in one of the above locations\n"
