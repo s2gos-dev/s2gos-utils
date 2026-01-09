@@ -1,6 +1,7 @@
 from dynaconf import Dynaconf, Validator
 from upath import UPath
 
+from .paths import to_path_ref
 from ..io.resolver import resolver
 
 
@@ -28,6 +29,6 @@ def load_config():
     """
     user_paths = settings.common.search_paths
     for path in user_paths:
-        upath = UPath(path)
+        upath = to_path_ref(user_paths).upath
         if upath.exists():
             resolver.append(path)
