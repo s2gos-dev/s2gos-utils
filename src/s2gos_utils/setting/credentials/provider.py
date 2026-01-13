@@ -200,13 +200,21 @@ def get_credential_provider() -> CredentialProvider:
     Returns:
         The global credential provider
     """
-    # TODO: leave that as a choice to the user through the config.
-    # future providers could be keyring or Vault..
+    from .. import settings
+    
     global _credential_provider
+
     if _credential_provider is None:
-        # Lazy import to avoid circular dependencies
-        from s2gos_utils.setting._settings import settings
-        _credential_provider = DynaconfCredentialProvider(settings)
+        # Fetch provider from settings.
+        provider_name = settings.common.credential_provider
+
+        if provider_name == "environment":
+            _credential_provider = EnvCredentialProvider()
+        elif provider_name == "dynaconf":
+            from s2gos_utils.setting._settings import settings
+            _credential_provider = DynaconfCredentialProvider(settings)
+        else:
+            raise NotImplementedError(f"{provider_name} is not implemented as a Credential Provider.")
 
     return _credential_provider
 
