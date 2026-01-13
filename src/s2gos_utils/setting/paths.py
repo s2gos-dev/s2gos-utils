@@ -1,6 +1,6 @@
 from dynaconf.utils.boxing import Box, DynaBox
 
-from ..typing import PathRef
+from ..io import PathRef
 
 
 def to_pathref(path_setting: DynaBox | dict | str) -> PathRef:

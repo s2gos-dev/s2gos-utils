@@ -5,7 +5,8 @@ import os
 import attrs
 from upath import UPath
 
-from ..typing import PathLike, PathRef
+from ..io import PathRef
+from ..typing import PathLike
 
 
 def _validator_path_exists(instance, attribute, value: UPath):

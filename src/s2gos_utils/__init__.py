@@ -7,6 +7,7 @@ load_config()
 
 
 from .io.paths import (
+    PathRef,
     exists,
     is_remote_path,
     mkdir,
@@ -35,6 +36,7 @@ from .versioning import (
 )
 
 __all__ = [
+    "PathRef"
     "SceneDescription",
     "Material",
     "MaterialConfigLoader",

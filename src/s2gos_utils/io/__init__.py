@@ -1,4 +1,5 @@
 from .paths import (
+    PathRef,
     copy,
     exists,
     expand_mapper,
@@ -17,6 +18,7 @@ from .paths import (
 from .resolver import FileResolver, resolver
 
 __all__ = [
+    "PathRef"
     "copy"
     "open_file",
     "exists",

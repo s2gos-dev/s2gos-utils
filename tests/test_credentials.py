@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from s2gos_utils.io import PathRef
 from s2gos_utils.setting.credentials.credential import (
     BasicAuthCredential,
     S3Credential,
@@ -18,7 +19,6 @@ from s2gos_utils.setting.credentials.provider import (
     get_credential,
     set_credential_provider,
 )
-from s2gos_utils.typing import PathRef
 
 
 class TestCredentialModels:
