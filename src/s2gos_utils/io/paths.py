@@ -89,7 +89,7 @@ def read_yaml(path: PathLike, **kwargs) -> Dict[str, Any]:
         return yaml.safe_load(f, **kwargs)
 
 
-def open_dataarray(path: PathLike, **kwargs) -> xr.DataArray:
+def open_dataarray(path: PathRef | PathLike, **kwargs) -> xr.DataArray:
     """Open an xarray DataArray, letting xarray handle the fsspec backend.
 
     Args:
@@ -99,20 +99,66 @@ def open_dataarray(path: PathLike, **kwargs) -> xr.DataArray:
     Returns:
         An xarray DataArray.
     """
-    return xr.open_dataarray(str(path), **kwargs)
+    path = to_upath(path)
+    mapper = expand_mapper(path)
+    return xr.open_dataarray(mapper, **kwargs)
 
 
-def open_dataset(path: PathLike, **kwargs) -> xr.Dataset:
-    """Open an xarray Dataset, letting xarray handle the fsspec backend.
+def open_dataset(
+    path: UPath | PathRef,
+    engine: str | None = None,
+    fsspec_caching: dict | None = None,
+    **kwargs,
+):
+    """
+    Open an xarray Dataset. 
+    Uses `universal_pathlib` (`UPath`) to handle remote location access by 
+    passing the `storage_options` when relevant and uses `fsspec` to handle by
+    opening using the `FileSystem.open` method directly.
+    Note that the `netcdf4` engine can only use a local caching strategy. In such
+    cases, `fsspec_caching` is passed to the `simplecache` argument of 
+    `fsspec.open_local`.
 
     Args:
         path: Path to the data file.
+        engine: The backend engine used by xarray.
+        fsspec_caching: 
+            Kwargs arguments for fsspec caching. for engine="netcdf4", 
+            this is passed to `simplecache`.
         **kwargs: Additional arguments for xr.open_dataset().
 
     Returns:
         An xarray Dataset.
     """
-    return xr.open_dataset(str(path), **kwargs)
+    path = to_upath(path)
+
+    # Will trigger an helpful assert if it cannot find the proper engine, which
+    # gets obfuscated by the storage option exception otherwise.
+    if engine is None:
+        engine = xr.backends.plugins.guess_engine(path.path)
+
+    # Check for storage options for authentication
+    if len(path.storage_options) > 0 and "storage_options" not in kwargs:
+        kwargs["storage_options"] = path.storage_options
+
+    if fsspec_caching is not None:
+        fs = path.fs
+        if engine == "netcdf4":
+            import fsspec
+
+            return xr.open_dataset(
+                fsspec.open_local(
+                    f"simplecache::{str(path)}", simplecache=fsspec_caching
+                ),
+                engine=engine,
+                **kwargs,
+            )
+        else:
+            return xr.open_dataset(
+                fs.open(str(path), **fsspec_caching), engine=engine, **kwargs
+            )
+
+    return xr.open_dataset(str(path), engine=engine, **kwargs)
 
 
 def is_remote_path(path: PathLike) -> bool:

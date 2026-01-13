@@ -2,7 +2,13 @@
 import pathlib
 from typing import Annotated, Any, Optional
 
-from pydantic import BaseModel, Field, GetCoreSchemaHandler, model_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    GetCoreSchemaHandler,
+    PrivateAttr,
+    model_validator,
+)
 from pydantic_core import core_schema
 from upath import UPath
 
@@ -74,9 +80,9 @@ class PathRef(BaseModel):
     value: str = Field(description="value")
     # TODO : rename to credential id
     cid: str | None = Field(default=None, description="Credential ID")
+    _upath: UPath | None = PrivateAttr(default=None)
 
     def __init__(self, value, cid=None, **kwargs):
-        
         if isinstance(value, UPath):
             path = str(value)
         elif isinstance(value, PathRef):
@@ -88,19 +94,17 @@ class PathRef(BaseModel):
         else:
             path = value
 
-        super(PathRef, self).__init__(
-            value=path, cid=cid, **kwargs
-        )
+        super(PathRef, self).__init__(value=path, cid=cid, **kwargs)
 
     @model_validator(mode="before")
     @classmethod
     def convert_to_pathref(cls, value):
         if isinstance(value, str):
             return {"value": value}
-        
+
         elif isinstance(value, UPath):
             cid = value.storage_options.get("cid")
-            return {"value": str(value), "cid":cid}
+            return {"value": str(value), "cid": cid}
         return value
 
     @property
@@ -118,6 +122,9 @@ class PathRef(BaseModel):
         Raises:
             ValueError: If `cid` is set but credential is not found
         """
+        if self._upath is not None:
+            return self._upath
+
         if self.cid:
             from s2gos_utils.setting.credentials import get_credential
 
@@ -129,20 +136,33 @@ class PathRef(BaseModel):
                     f"or add to .secrets.yaml"
                 )
             kwargs = cred.upath_kwargs
-            return UPath(self.value, **kwargs)
+            self._upath = UPath(self.value, **kwargs)
         else:
             # No credentials needed (local path or public URL)
-            return UPath(self.value)
+            self._upath = UPath(self.value)
+        
+        return self._upath
 
+    def to_dict(self) -> dict[str, str]:
+        """Alias to `model_dump`."""
+        return self.model_dump()
 
-    # TODO: It is also possible to return the PathRef by joining and passing the
-    # cid. Not sure whether this is best or not.
     def __truediv__(self, other) -> UPath:
         """Returns the joined UPath."""
-        return self.upath / other
+        
+        if isinstance(other, PathRef):
+            other_path = other.upath
+            if other.cid != self.cid:
+                raise ValueError(
+                    f"Joining paths with different credential ids! "
+                    f"Left: {self.cid}, Right: {other.cid}.")
+        else:
+            other_path = other
+
+        return PathRef(self.upath / other_path, self.cid) 
 
     def __str__(self) -> str:
-        """Return the path value as a string"""
+        """Return the path value as a string."""
         return self.value
 
     model_config = {"frozen": True}
