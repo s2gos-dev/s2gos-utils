@@ -117,11 +117,11 @@ class PathRef(BaseModel):
         """Returns the joined UPath."""
         
         if isinstance(other, PathRef):
-            other_path = other.upath
             if other.cid != self.cid:
                 raise ValueError(
                     f"Joining paths with different credential ids! "
                     f"Left: {self.cid}, Right: {other.cid}.")
+            other_path = other.upath
         else:
             other_path = other
 
@@ -257,10 +257,6 @@ def open_dataarray(
             )
 
     return xr.open_dataarray(str(path), engine=engine, **kwargs)
-    # path = to_upath(path)
-    # mapper = expand_mapper(path)
-    # return xr.open_dataarray(mapper, **kwargs)
-    # return xr.open_dataarray(str(path), **kwargs)
 
 
 def open_dataset(
