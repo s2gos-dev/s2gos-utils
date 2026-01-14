@@ -60,6 +60,13 @@ class TestPathRefCreation:
         assert pr.value == "s3://bucket/path"
         assert pr.cid == "test_cred"
 
+    def test_pathref_from_path(self):
+        """Test creating PathRef from UPath."""
+        upath = Path("/tmp/test")
+        pr = PathRef(upath)
+        assert pr.value == "/tmp/test"
+        assert pr.cid is None
+
     def test_pathref_from_upath(self):
         """Test creating PathRef from UPath."""
         upath = UPath("/tmp/test")

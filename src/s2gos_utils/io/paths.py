@@ -1,4 +1,5 @@
 import json
+import os
 from typing import Any, BinaryIO, Dict, Optional, TextIO, Union
 
 import geopandas as gpd
@@ -49,7 +50,7 @@ class PathRef(BaseModel):
     _upath: UPath | None = PrivateAttr(default=None)
 
     def __init__(self, value, cid=None, **kwargs):
-        if isinstance(value, UPath):
+        if isinstance(value, (UPath, os.PathLike)):
             path = str(value)
         elif isinstance(value, PathRef):
             path = value.value
@@ -71,6 +72,7 @@ class PathRef(BaseModel):
         elif isinstance(value, UPath):
             cid = value.storage_options.get("cid")
             return {"value": str(value), "cid": cid}
+        
         return value
 
     @property
