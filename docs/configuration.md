@@ -13,20 +13,19 @@ The configuration structure depends on your installation:
 
 ```yaml
 # s2gos_settings.yaml
-## ========================================================================== ##
 common:
-    ## List of data paths to always add to the file resolver
-    search_paths :
-        - "/home/martonn/Projects/s2gos/s2gos/packages/s2gos-generator/resources/data",
-        - "/home/martonn/Projects/s2gos/s2gos/data",
-    
-    local_fsspec_cache : "./tmp/fsspec_cache" # Optional
-    credential_provider : "dynaconf" # Optional {dynaconf, environment}
+    search_paths:
+        - "./resources/data"
+        - "./data"
+        - "s3://my-bucket/shared-data"
+
+    local_fsspec_cache: "./tmp/fsspec_cache"  # Optional
+    credential_provider: "dynaconf"           # Optional: dynaconf | environment
 
 # generator:
-# See s2gos-generator documentation for available options
+#   See s2gos-generator documentation
 # simulator:
-# See s2gos-simulator documentation for available options
+#   See s2gos-simulator documentation
 ```
 
 ## Configuration Parameters
@@ -47,4 +46,4 @@ Cache directory used by xarray when loading a netcdf stored in a remote location
 
 #### `credential_provider`, **string**, *optional (default: dynaconf)*
 
-Name of the credential provider used to resolve credentials from a credential id. See [credentials.md](credential.md) for details on how credentials are handled.
+Name of the credential provider used to resolve credentials from a credential ID. See [Credentials](credentials.md) for details.

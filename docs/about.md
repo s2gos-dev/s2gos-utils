@@ -2,7 +2,7 @@
 
 ## Development
 
-S2GOS Utils uses [pixi](https://pixi.sh/dev/) to manage the project. You can install the development environemnt using
+S2GOS Utils uses [pixi](https://pixi.sh/dev/) to manage the project. You can install the development environment using
 
 ```bash
 pixi install -e dev

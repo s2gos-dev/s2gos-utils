@@ -1,72 +1,76 @@
 # Credentials
-* Credentials and secrets are required to access files and datasets stored in remote locations.
-* Secrets should never appear in version control or in serialized files.
-* For this reason, S2GOS uses credential IDs and credential providers.
+
+* Required to access files and datasets stored in authenticated remote locations.
+* Secrets should never appear in version control or serialized files.
+* S2GOS separates credential IDs (safe to store) from actual secrets (stored locally).
 
 ## Credential ID
-* Used by credential provider to identify credentials linked to a remote path.
-* Use descriptive names that indicate the purpose or data source
-* Examples: earthdatahub, s3ovh, my_institution, landsat_archive
 
-## Supported Authentication Method
+* Identifier used to look up credentials at runtime.
+* Use descriptive names indicating purpose or data source.
+* Examples: `earthdatahub`, `s3ovh`, `my_institution`, `landsat_archive`.
 
-### BasicAuth
-* `username`
-* `password`
+## Supported Authentication Types
+
+### BasicAuth (HTTP)
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `username` | Yes | HTTP username |
+| `password` | Yes | HTTP password or token |
+
 
 ### S3
-* `key`
-* `secret`
-* `endpoint_url`
 
-## Supported Credential Providers
+| Field | Required | Description |
+|-------|----------|-------------|
+| `key` | Yes | Access key ID |
+| `secret` | Yes | Secret access key |
+| `endpoint_url` | No | For S3-compatible services (not needed for AWS) |
 
-### Environment
-* Reads credentials directly from Environment Variables.
-* Should be of the form S2GOS_CREDENTIALS__<crendential_id>__<variable>
-* BasicAuth Example:
-    - S2GOS_CREDENTIALS__earthdatahub__TYPE=basic_auth
-    - S2GOS_CREDENTIALS__earthdatahub__USERNAME=...
-    - S2GOS_CREDENTIALS__earthdatahub__PASSWORD=...
-* S3 Example:
-    - S2GOS_CREDENTIALS__s3bucket__TYPE=s3
-    - S2GOS_CREDENTIALS__s3bucket__KEY=...
-    - S2GOS_CREDENTIALS__s3bucket__SECRET=...
-    - S2GOS_CREDENTIALS__s3bucket__ENDPOINT_URL=...
+## Credential Providers
 
-### Dynaconf
-* Reads credentials from .secret.yaml.
-* This file is gitignored, never commit it to version control.
-* Note that Environment variables take precedence over .secrets.yaml
-* See the [dynaconf documentation](https://www.dynaconf.com/secrets/) for more details on how secrets are handled. 
-* Template example:
+* Responsible for retrieving credentials from a credential ID.
+
+### Environment Variables
+
+* Format: `S2GOS_CREDENTIALS__<credential_id>__<FIELD>`
+* BasicAuth example:
+    ```bash
+    export S2GOS_CREDENTIALS__earthdatahub__TYPE=basic_auth
+    export S2GOS_CREDENTIALS__earthdatahub__USERNAME=myuser
+    export S2GOS_CREDENTIALS__earthdatahub__PASSWORD=mytoken
+    ```
+* S3 example:
+    ```bash
+    export S2GOS_CREDENTIALS__s3bucket__TYPE=s3
+    export S2GOS_CREDENTIALS__s3bucket__KEY=AKIAIOSFODNN7EXAMPLE
+    export S2GOS_CREDENTIALS__s3bucket__SECRET=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+    export S2GOS_CREDENTIALS__s3bucket__ENDPOINT_URL=https://s3.eu-west-1.amazonaws.com
+    ```
+
+### Dynaconf (`.secrets.yaml`)
+
+* Reads credentials from `.secrets.yaml` in the project root.
+* **Never commit this file** - it should be gitignored.
+* Environment variables take precedence over `.secrets.yaml`.
+* See [dynaconf secrets documentation](https://www.dynaconf.com/secrets/).
 
 ```yaml
-# S2GOS Credentials Template
-#
+# .secrets.yaml
 credentials:
-  # Example: HTTP Basic Authentication
-  # Used for HTTPS data sources that require username/password
   earthdatahub:
     type: basic_auth
-    username: your_username_here
-    password: your_password_or_token_here
+    username: your_username
+    password: your_token
 
-  # Example: S3 credentials
-  # Used for S3 or S3-compatible object storage
   s3ovh:
     type: s3
-    key: your_access_key_here
-    secret: your_secret_key_here
-    # Optional: endpoint URL for S3-compatible services (not needed for AWS S3)
-    endpoint_url: https://s3.de.io.cloud.ovh.net
-
-  # Add your own credentials below
-  # my_custom_source:
-  #   type: basic_auth
-  #   username: my_user
-  #   password: my_password
+    key: your_access_key
+    secret: your_secret_key
+    endpoint_url: https://s3.de.io.cloud.ovh.net  # Optional
 ```
 
-## See Also:
-* [Data Access Layer](data_access_layer.md).
+## See Also
+
+* [Data Access Layer](data_access_layer.md) - Using credentials with PathRef.
