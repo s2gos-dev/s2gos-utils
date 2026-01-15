@@ -1,13 +1,14 @@
 # Configuration
 
-The S2GOS generator is configured through a `s2gos_settings.yaml` file. The generator automatically searches for this file by climbing up the directory tree from your script's location.
+The S2GOS generator is configured through a `s2gos_settings.yaml` file. The package automatically searches for this file by climbing up the directory tree from your script's location.
 
 ## Installation Modes
 
-The configuration structure depends on your installation:
+The configuration structure is modulable and will depends:
 
-- **Standalone** (`s2gos-generator` only): Requires `common` and `generator` sections.
-- **Monorepo** (with `s2gos-simulator`): Includes `common`, `generator`, and `simulator` sections.
+- `common` section: required when using both `s2gos-generator` and `s2gos-simulator`.
+- `generator` and `simulator` sections required when using `s2gos-generator` and `s2gos-simulator` respectively.
+- **Monorepo**: Includes `common`, `generator`, and `simulator` sections.
 
 ## Configuration Example
 

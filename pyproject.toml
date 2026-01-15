@@ -46,7 +46,7 @@ lab = "jupyter lab"
 [project.optional-dependencies]
 test = ["pytest"]
 dev = []
-docs = ["mkdocs"]
+docs = ["mkdocs","mkdocs-material>=9.7.1,<10"]
 
 [tool.pixi.environments]
 default = { solve-group = "default" }
