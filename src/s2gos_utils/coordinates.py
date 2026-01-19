@@ -362,3 +362,34 @@ def calculate_pixel_size(
     pixel_size_y = (height_km * 1000) / film_resolution[1]
 
     return pixel_size_x, pixel_size_y
+
+
+def pixel_to_scene_xy(
+    row: int,
+    col: int,
+    bounds: Dict[str, float],
+    resolution: Tuple[int, int],
+) -> Tuple[float, float]:
+    """
+    Convert pixel (row, col) indices to scene (x, y) coordinates at pixel center.
+
+    Pixel indexing convention:
+    - Row 0 is at the top (ymax), increasing row goes south (decreasing y)
+    - Col 0 is at the left (xmin), increasing col goes east (increasing x)
+    - Returns coordinates at pixel CENTER (offset by 0.5 pixels)
+
+    Args:
+        row: Pixel row index (0 = top/north)
+        col: Pixel column index (0 = left/west)
+        bounds: Scene bounds dict with 'xmin', 'xmax', 'ymin', 'ymax' in meters
+        resolution: Film resolution as (width_pixels, height_pixels)
+
+    Returns:
+        Tuple of (x, y) scene coordinates in meters at pixel center
+    """
+
+    width, height = resolution
+    x = bounds["xmin"] + ((col + 0.5) / width) * (bounds["xmax"] - bounds["xmin"])
+    y = bounds["ymax"] - ((row + 0.5) / height) * (bounds["ymax"] - bounds["ymin"])
+
+    return x, y
