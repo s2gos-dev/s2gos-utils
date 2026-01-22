@@ -36,5 +36,4 @@ def load_config():
     user_paths = settings.common.search_paths
     for path in user_paths:
         upath = to_pathref(path).upath
-        if upath.exists():
-            resolver.append(path)
+        resolver.append(upath)

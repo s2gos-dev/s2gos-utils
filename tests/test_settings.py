@@ -146,14 +146,8 @@ class TestLoadConfig:
         original_paths = settings.common.search_paths
         settings.common.search_paths = ["/path/that/does/not/exist/12345"]
 
-        try:
-            # Call load_config - should not raise an error
+        with pytest.raises(FileNotFoundError):
             load_config()
 
-            # The resolver length should not increase for non-existent paths
-            # (it might stay the same or increase due to other paths)
-            assert len(resolver.paths) >= initial_length
-
-        finally:
-            # Restore original settings
-            settings.common.search_paths = original_paths
+        # Restore original settings
+        settings.common.search_paths = original_paths

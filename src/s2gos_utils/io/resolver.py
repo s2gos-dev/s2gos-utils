@@ -37,7 +37,7 @@ class FileResolver:
         """
         upath = UPath(path)
         # Resolve for local paths only
-        if upath.protocol == "file":
+        if upath.protocol == "file" or upath.protocol == "":
             upath = upath.resolve()
 
         if not upath.exists():
@@ -58,7 +58,7 @@ class FileResolver:
         """
         upath = UPath(path)
         # Resolve for local paths only
-        if upath.protocol == "file":
+        if upath.protocol == "file" or upath.protocol == "":
             upath = upath.resolve()
 
         if not upath.exists():

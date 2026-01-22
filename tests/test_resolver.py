@@ -22,11 +22,12 @@ def test_append():
     resolver.append(filepath, avoid_duplicates=True)
     assert resolver.paths == [filepath]
 
-    resolver.append(filepath / "..", avoid_duplicates=True)
-    assert resolver.paths == [filepath, filepath / ".."]
+    parentpath = filepath / ".."
+    resolver.append(parentpath.resolve(), avoid_duplicates=True)
+    assert resolver.paths == [filepath, parentpath.resolve()]
 
     resolver.append(filepath, avoid_duplicates=False)
-    assert resolver.paths == [filepath, filepath / "..", filepath]
+    assert resolver.paths == [filepath, parentpath.resolve(), filepath]
 
     with pytest.raises(FileNotFoundError):
         resolver.append(Path("/some/path/that/does/not/exist"), avoid_duplicates=False)
@@ -39,11 +40,12 @@ def test_prepend():
     resolver.prepend(filepath, avoid_duplicates=True)
     assert resolver.paths == [filepath]
 
-    resolver.prepend(filepath / "..", avoid_duplicates=True)
-    assert resolver.paths == [filepath / "..", filepath]
+    parentpath = filepath / ".."
+    resolver.prepend(parentpath, avoid_duplicates=True)
+    assert resolver.paths == [parentpath.resolve(), filepath]
 
     resolver.prepend(filepath, avoid_duplicates=False)
-    assert resolver.paths == [filepath, filepath / "..", filepath]
+    assert resolver.paths == [filepath, parentpath.resolve(), filepath]
 
     with pytest.raises(FileNotFoundError):
         resolver.prepend(Path("/some/path/that/does/not/exist"), avoid_duplicates=False)
