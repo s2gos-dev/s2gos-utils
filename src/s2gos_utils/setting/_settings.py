@@ -1,9 +1,7 @@
 from dynaconf import Dynaconf, Validator
-from upath import UPath
 
 from .paths import to_pathref
 from ..io.resolver import resolver
-
 
 # SETTING DEFAULTS
 
