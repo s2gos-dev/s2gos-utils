@@ -49,8 +49,8 @@ class TestSettings:
     def test_settings_validates_only_common(self):
         """Test that only the common section is validated."""
         # The settings object should have validate_only set to "common"
-        assert settings.validators[0].names == ("SEARCH_PATHS",)
-        assert settings.validators[1].names == ("LOCAL_FSSPEC_CACHE",)
+        assert settings.validators[0].names == ("common.search_paths",)
+        assert settings.validators[1].names == ("common.local_fsspec_cache",)
 
 
 class TestToPathRef:

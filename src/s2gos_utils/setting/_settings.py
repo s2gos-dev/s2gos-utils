@@ -22,9 +22,9 @@ settings = Dynaconf(
     secrets=".secrets.yaml",
     envvar_prefix="S2GOS",
     validators=[
-        Validator( "SEARCH_PATHS", cast=list, default=_search_paths ),
-        Validator( "LOCAL_FSSPEC_CACHE", cast=str, default=_local_fsspec_cache ),
-        Validator( "credential_provider", cast=str, default=_credential_provider ),
+        Validator( "common.search_paths", cast=list, default=_search_paths ),
+        Validator( "common.local_fsspec_cache", cast=str, default=_local_fsspec_cache ),
+        Validator( "common.credential_provider", cast=str, default=_credential_provider ),
     ],
     validate_only="common",
 )
