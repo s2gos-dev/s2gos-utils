@@ -35,6 +35,7 @@ class BasicAuthCredential(Credential):
     @property
     def upath_kwargs(self):
         import aiohttp
+
         auth = aiohttp.BasicAuth(self.username, self.password)
         kwargs = {"client_kwargs": {"auth": auth}}
         return kwargs
@@ -50,7 +51,7 @@ class S3Credential(Credential):
 
     @property
     def upath_kwargs(self):
-        kwargs = { "key": self.key, "secret": self.secret}
+        kwargs = {"key": self.key, "secret": self.secret}
         if self.endpoint_url:
             kwargs["endpoint_url"] = self.endpoint_url
         return kwargs

@@ -1,6 +1,6 @@
 import os
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 
 from .credential import BasicAuthCredential, CredentialType, S3Credential
 from .exceptions import CredentialNotFoundError
@@ -179,6 +179,7 @@ class DictCredentialProvider(CredentialProvider):
 # Global credential provider instance
 _credential_provider: Optional[CredentialProvider] = None
 
+
 def set_credential_provider(provider: CredentialProvider) -> None:
     """
     Set the global credential provider.
@@ -201,7 +202,7 @@ def get_credential_provider() -> CredentialProvider:
         The global credential provider
     """
     from .. import settings
-    
+
     global _credential_provider
 
     if _credential_provider is None:
@@ -212,9 +213,12 @@ def get_credential_provider() -> CredentialProvider:
             _credential_provider = EnvCredentialProvider()
         elif provider_name == "dynaconf":
             from s2gos_utils.setting._settings import settings
+
             _credential_provider = DynaconfCredentialProvider(settings)
         else:
-            raise NotImplementedError(f"{provider_name} is not implemented as a Credential Provider.")
+            raise NotImplementedError(
+                f"{provider_name} is not implemented as a Credential Provider."
+            )
 
     return _credential_provider
 

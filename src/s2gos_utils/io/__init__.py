@@ -18,12 +18,9 @@ from .paths import (
 from .resolver import FileResolver, resolver
 
 __all__ = [
-    "PathRef"
-    "copy"
-    "open_file",
+    "PathRefcopyopen_file",
     "exists",
-    "expand_mapper"
-    "read_feather",
+    "expand_mapperread_feather",
     "read_geofeather",
     "read_json",
     "read_yaml",

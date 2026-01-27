@@ -2,9 +2,6 @@
 Tests for the credential management system.
 """
 
-import os
-from unittest.mock import MagicMock
-
 import pytest
 
 from s2gos_utils.io import PathRef

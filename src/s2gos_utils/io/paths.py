@@ -72,7 +72,7 @@ class PathRef(BaseModel):
         elif isinstance(value, UPath):
             cid = value.storage_options.get("cid")
             return {"value": str(value), "cid": cid}
-        
+
         return value
 
     @property
@@ -108,7 +108,7 @@ class PathRef(BaseModel):
         else:
             # No credentials needed (local path or public URL)
             self._upath = UPath(self.value)
-        
+
         return self._upath
 
     def to_dict(self) -> dict[str, str]:
@@ -117,17 +117,18 @@ class PathRef(BaseModel):
 
     def __truediv__(self, other) -> UPath:
         """Returns the joined UPath."""
-        
+
         if isinstance(other, PathRef):
             if other.cid != self.cid:
                 raise ValueError(
                     f"Joining paths with different credential ids! "
-                    f"Left: {self.cid}, Right: {other.cid}.")
+                    f"Left: {self.cid}, Right: {other.cid}."
+                )
             other_path = other.upath
         else:
             other_path = other
 
-        return PathRef(self.upath / other_path, self.cid) 
+        return PathRef(self.upath / other_path, self.cid)
 
     def __str__(self) -> str:
         """Return the path value as a string."""
@@ -137,6 +138,7 @@ class PathRef(BaseModel):
 
 
 # PATH UTILITY FUNCTIONS
+
 
 def to_upath(path: PathLike | PathRef) -> UPath:
     if isinstance(path, PathRef):
@@ -268,19 +270,19 @@ def open_dataset(
     **kwargs,
 ):
     """
-    Open an xarray Dataset. 
-    Uses `universal_pathlib` (`UPath`) to handle remote location access by 
+    Open an xarray Dataset.
+    Uses `universal_pathlib` (`UPath`) to handle remote location access by
     passing the `storage_options` when relevant and uses `fsspec` to handle by
     opening using the `FileSystem.open` method directly.
     Note that the `netcdf4` engine can only use a local caching strategy. In such
-    cases, `fsspec_caching` is passed to the `simplecache` argument of 
+    cases, `fsspec_caching` is passed to the `simplecache` argument of
     `fsspec.open_local`.
 
     Args:
         path: Path to the data file.
         engine: The backend engine used by xarray.
-        fsspec_caching: 
-            Kwargs arguments for fsspec caching. for engine="netcdf4", 
+        fsspec_caching:
+            Kwargs arguments for fsspec caching. for engine="netcdf4",
             this is passed to `simplecache`.
         **kwargs: Additional arguments for xr.open_dataset().
 

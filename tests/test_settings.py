@@ -19,9 +19,7 @@ common:
     local_fsspec_cache: "/tmp/test_cache"
     credential_provider: "environment"
 """
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".yaml", delete=False
-    ) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
         f.write(config_content)
         temp_path = f.name
 
@@ -73,10 +71,7 @@ class TestToPathRef:
         assert result.value == "/tmp/test_path"
         assert result.cid is None
 
-        path_dict = {
-            "value": "s3://bucket/path",
-            "cid": "my_credential"
-        }
+        path_dict = {"value": "s3://bucket/path", "cid": "my_credential"}
         result = to_pathref(path_dict)
 
         assert isinstance(result, PathRef)
@@ -85,10 +80,9 @@ class TestToPathRef:
 
     def test_to_pathref_from_dynabox(self):
         """Test converting a DynaBox (dynaconf object) to PathRef."""
-        dynabox = DynaBox({
-            "value": "https://example.com/data.zarr",
-            "cid": "example_cred"
-        })
+        dynabox = DynaBox(
+            {"value": "https://example.com/data.zarr", "cid": "example_cred"}
+        )
         result = to_pathref(dynabox)
 
         assert isinstance(result, PathRef)

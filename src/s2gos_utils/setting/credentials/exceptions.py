@@ -3,6 +3,7 @@ class CredentialNotFoundError(Exception):
     Raised when a credential ID cannot be found in any provider.
     Indicates the credential is not configured at all.
     """
+
     def __init__(self, credential_id: str):
         self.credential_id = credential_id
         message = (

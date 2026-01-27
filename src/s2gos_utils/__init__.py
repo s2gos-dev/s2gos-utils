@@ -1,4 +1,4 @@
-from .setting import settings, load_config
+from .setting import load_config, settings
 
 # Start by loading the config. Currently required so that other imports work.
 # This is code smell.. MaterialConfigLoader is also initialized globally.
@@ -36,8 +36,7 @@ from .versioning import (
 )
 
 __all__ = [
-    "PathRef"
-    "SceneDescription",
+    "PathRefSceneDescription",
     "Material",
     "MaterialConfigLoader",
     "load_materials",
