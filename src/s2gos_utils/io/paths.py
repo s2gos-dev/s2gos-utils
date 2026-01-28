@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import os
 from typing import Any, BinaryIO, Dict, Optional, TextIO, Union
@@ -115,7 +117,7 @@ class PathRef(BaseModel):
         """Alias to `model_dump`."""
         return self.model_dump()
 
-    def __truediv__(self, other) -> UPath:
+    def __truediv__(self, other) -> PathRef:
         """Returns the joined UPath."""
 
         if isinstance(other, PathRef):
